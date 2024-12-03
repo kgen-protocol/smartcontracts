@@ -1,0 +1,6 @@
+.aptos/
+build/
+keys
+keysF
+node_modules/
+package-lock.json
