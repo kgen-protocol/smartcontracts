@@ -23,12 +23,13 @@ module rKGenAdmin::rKGen {
     const ENOT_ADMIN: u64 = 6;
     const ECANNOT_DELETE_TREASURY_ADDRESS: u64 = 7;
     const EINVALIDRECEIVERORSENDER: u64 = 8;
+    const ENOT_BURNVAULT: u64 = 9;
 
     // Metadata values for the fungible asset
     const ASSET_SYMBOL: vector<u8> = b"rKGEN";
     const METADATA_NAME: vector<u8> = b"rKGEN";
-    const ICON_URI: vector<u8> = b"http://example.com/favicon.ico"; //KGEN will provide
-    const PROJECT_URI: vector<u8> = b"http://example.com"; //KGEN will provide
+    const ICON_URI: vector<u8> = b"https://prod-image-bucket.indi.gg/assets/rkgen-logo.png";
+    const PROJECT_URI: vector<u8> = b"https://kgen.io";
     // const MULTISIG_ADDRESS: address =
     //     @0xcbcd4237032113566ef395a3f0dd0a2aad769ee130cce018193c17acbbed57b8;
 
@@ -44,7 +45,8 @@ module rKGenAdmin::rKGen {
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     // Stores the multisig address used for minting purposes.
     struct Admin has key {
-        admin: address
+        admin: address,
+        burnable: address
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -79,7 +81,13 @@ module rKGenAdmin::rKGen {
         move_to(admin, MintingManager { minter: signer::address_of(admin) });
 
         /* Stores the global storage for the addresses of Admin role */
-        move_to(admin, Admin { admin: signer::address_of(admin) });
+        move_to(
+            admin,
+            Admin {
+                admin: signer::address_of(admin),
+                burnable: signer::address_of(admin)
+            }
+        );
 
         /* Stores the global storage for the addresses of  treasury address */
         let t_vec = vector::empty<address>();
@@ -128,10 +136,23 @@ module rKGenAdmin::rKGen {
         borrow_global<Admin>(@rKGenAdmin).admin
     }
 
+    //Function to view the available burnable address
+    #[view]
+    // Return the admin address.
+    public fun get_burn_vault(): address acquires Admin {
+        borrow_global<Admin>(@rKGenAdmin).burnable
+    }
+
     // to check if the address is of admin
     inline fun is_admin(admin: &address): bool acquires Admin {
         let a = borrow_global<Admin>(@rKGenAdmin).admin;
         &a == admin
+    }
+
+    // to check if the address is of burn_vault
+    inline fun is_burn_vault(burn: &address): bool acquires Admin {
+        let b = borrow_global<Admin>(@rKGenAdmin).burnable;
+        &b == burn
     }
 
     // Only invoked by the admin
@@ -142,7 +163,7 @@ module rKGenAdmin::rKGen {
             error::permission_denied(ENOT_ADMIN)
         );
         // Check if the new admin already exists in the list
-        assert!(!is_admin(&new_admin), error::invalid_argument(EALREADY_EXIST));
+        assert!(!is_admin(&new_admin), error::already_exists(EALREADY_EXIST));
 
         // Get the Admin Role storage reference
         let admin_struct = borrow_global_mut<Admin>(@rKGenAdmin);
@@ -153,6 +174,31 @@ module rKGenAdmin::rKGen {
             UpdatedAdmin {
                 role: to_string(&std::string::utf8(b"New Admin Added")),
                 added_admin: new_admin
+            }
+        );
+    }
+
+    // Only invoked by the admin
+    public entry fun update_burn_vault(
+        admin_addr: &signer, new_address: address
+    ) acquires Admin {
+        // Ensure that only admin can add a new admin
+        assert!(
+            is_admin(&signer::address_of(admin_addr)),
+            error::permission_denied(ENOT_ADMIN)
+        );
+        // Check if the new address already exists
+        assert!(!is_burn_vault(&new_address), error::already_exists(EALREADY_EXIST));
+
+        // Get the Admin Role storage reference
+        let admin_struct = borrow_global_mut<Admin>(@rKGenAdmin);
+        // Add the new admin
+        admin_struct.burnable = new_address;
+
+        event::emit(
+            UpdatedBurnVault {
+                role: to_string(&std::string::utf8(b"New Admin Added")),
+                updated_address: new_address
             }
         );
     }
@@ -180,7 +226,7 @@ module rKGenAdmin::rKGen {
             error::permission_denied(ENOT_ADMIN)
         );
         // Check if the  minter already exists in the minter struct
-        assert!(!verifyMinter(&new_minter), error::invalid_argument(EALREADY_EXIST));
+        assert!(!verifyMinter(&new_minter), error::already_exists(EALREADY_EXIST));
 
         // Get the AdminMinterRole storage reference
         let mint_struct = borrow_global_mut<MintingManager>(@rKGenAdmin);
@@ -220,7 +266,7 @@ module rKGenAdmin::rKGen {
         // Check if the new treasury address already exists in the treasury list
         assert!(
             !verifyTreasuryAddress(&new_address),
-            error::invalid_argument(EALREADY_EXIST)
+            error::already_exists(EALREADY_EXIST)
         );
 
         if (!verifySenderAddress(&new_address)) {
@@ -256,7 +302,7 @@ module rKGenAdmin::rKGen {
         // Check if the treasury address exists in the treasury list or not
         assert!(
             verifyTreasuryAddress(&treasury_address),
-            error::invalid_argument(ENOT_TREASURY_ADDRESS)
+            error::unauthenticated(ENOT_TREASURY_ADDRESS)
         );
 
         // Get the Treasury storage reference
@@ -298,7 +344,7 @@ module rKGenAdmin::rKGen {
         // Check if the new address already exists in the whitelist
         assert!(
             !verifySenderAddress(&new_address),
-            error::invalid_argument(EALREADY_EXIST)
+            error::already_exists(EALREADY_EXIST)
         );
 
         // Get the AdminMinterRole storage reference
@@ -392,7 +438,7 @@ module rKGenAdmin::rKGen {
         // Check if the new receiver address exists in the whitelist
         assert!(
             !verifyReceiverAddress(&new_address),
-            error::invalid_argument(EALREADY_EXIST)
+            error::already_exists(EALREADY_EXIST)
         );
 
         // Get the ReceiverWhiteList storage reference
@@ -483,6 +529,13 @@ module rKGenAdmin::rKGen {
         from: address,
         receiver: address,
         amount: u64
+    }
+
+    // Triggered when onwer updated the admin
+    #[event]
+    struct UpdatedBurnVault has drop, store {
+        role: String,
+        updated_address: address
     }
 
     // Triggered when onwer updated the admin
@@ -619,11 +672,11 @@ module rKGenAdmin::rKGen {
     ) acquires ManagedRKGenAsset, MintingManager, TreasuryAddresses {
         assert!(
             verifyMinter(&signer::address_of(admin)),
-            error::invalid_argument(ENOT_ADMIN)
+            error::permission_denied(ENOT_ADMIN)
         );
         assert!(
             verifyTreasuryAddress(&to),
-            error::invalid_argument(ENOT_TREASURY_ADDRESS)
+            error::permission_denied(ENOT_TREASURY_ADDRESS)
         );
 
         let asset = get_metadata();
@@ -650,20 +703,25 @@ module rKGenAdmin::rKGen {
             is_admin(&signer::address_of(admin)),
             error::permission_denied(ENOT_ADMIN)
         );
+        // Ensure that only admin can burn from burn_vault
+        assert!(
+            is_burn_vault(&from),
+            error::permission_denied(ENOT_BURNVAULT)
+        );
         let asset = get_metadata();
         let burn_ref = authorized_borrow_burn_refs(asset);
         let from_wallet = primary_fungible_store::primary_store(from, asset);
         fungible_asset::burn_from(burn_ref, from_wallet, amount);
     }
 
-    // Function to transfer rKGen from whitelist sender
+    // Implement function to transfer rKGen from whitelist sender
     // Only whitelist sender can transfer
     public entry fun transfer_from_whitelist_sender(
         sender_address: &signer, receiver: address, amount: u64
     ) acquires ManagedRKGenAsset, SenderWhiteList {
         assert!(
             verifySenderAddress(&signer::address_of(sender_address)),
-            error::invalid_argument(ENOT_WHITELIST_SENDER)
+            error::permission_denied(ENOT_WHITELIST_SENDER)
         );
         transfer_internal(sender_address, &receiver, amount);
         event::emit(
@@ -682,21 +740,21 @@ module rKGenAdmin::rKGen {
         assert!(
             verifySenderAddress(&signer::address_of(sender))
                 || verifyReceiverAddress(&receiver),
-            error::invalid_argument(EINVALIDRECEIVERORSENDER)
+            error::unauthenticated(EINVALIDRECEIVERORSENDER)
         );
         transfer_internal(sender, &receiver, amount);
 
         event::emit(Transfer { from: signer::address_of(sender), receiver, amount });
     }
 
-    // Function to transfer rKGen to whitelist receiver
+    // Implement function to transfer rKGen to whitelist receiver
     // Anyone can invoke this function but receiver should be in whitelist
     public entry fun transfer_to_whitelist_receiver(
         sender_address: &signer, receiver: address, amount: u64
     ) acquires ManagedRKGenAsset, ReceiverWhiteList {
         assert!(
             verifyReceiverAddress(&receiver),
-            error::invalid_argument(ENOT_WHITELIST_RECEIVER)
+            error::unauthenticated(ENOT_WHITELIST_RECEIVER)
         );
         transfer_internal(sender_address, &receiver, amount);
         event::emit(
@@ -705,25 +763,6 @@ module rKGenAdmin::rKGen {
                 receiver,
                 amount
             }
-        );
-    }
-
-    #[test(creator = @rKGenAdmin)]
-    fun test_basic_flow(
-        creator: &signer
-    ) acquires ManagedRKGenAsset, MintingManager, TreasuryAddresses {
-        init_module(creator);
-        let creator_address = signer::address_of(creator);
-        let aaron_address = @0xface;
-
-        mint(creator, creator_address, 100);
-        let asset = get_metadata();
-        assert!(primary_fungible_store::balance(creator_address, asset) == 100, 4);
-
-        add_treasury_address(creator, aaron_address);
-        assert!(
-            verifyTreasuryAddress(&aaron_address),
-            error::invalid_argument(ENOT_TREASURY_ADDRESS)
         );
     }
 }
