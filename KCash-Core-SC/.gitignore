@@ -1,0 +1,20 @@
+.aptos/
+.DS_Store
+*/**/.DS_Store
+.env
+.history/
+.idea/
+.npm/
+.nyc_output/
+.vscode/
+build/
+coverage/
+dist/
+node_modules/
+npm-debug.log
+tmp/
+indigg/typescript/facoin/facoin.json
+*.bak
+
+# Vim swap files
+*.swp

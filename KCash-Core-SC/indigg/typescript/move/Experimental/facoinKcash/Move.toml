@@ -1,0 +1,12 @@
+[package]
+name = "facoinKcash"
+version = "1.0.0"
+authors = []
+
+[addresses]
+FACoinAddr = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"

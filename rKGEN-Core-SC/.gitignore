@@ -4,3 +4,5 @@ keys
 keysF
 node_modules/
 package-lock.json
+*.key
+ace.key.pub

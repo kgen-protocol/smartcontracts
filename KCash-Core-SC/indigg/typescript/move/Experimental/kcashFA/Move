@@ -1,0 +1,12 @@
+[package]
+name = "kcashFA"
+version = "1.0.0"
+authors = []
+
+[addresses]
+kcash_addr = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/indi-gg/kcash_v2_contract_move_aptos"
+rev = "main"
+subdir = "framework/aptos-framework"
