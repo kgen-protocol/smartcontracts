@@ -28,7 +28,7 @@ module rKGenAdmin::rKGen {
     // Metadata values for the fungible asset
     const ASSET_SYMBOL: vector<u8> = b"rKGEN";
     const METADATA_NAME: vector<u8> = b"rKGEN";
-    const ICON_URI: vector<u8> = b"https://prod-image-bucket.indi.gg/assets/rkgen-logo.png";
+    const ICON_URI: vector<u8> = b"https://prod-image-bucket.kgen.io/assets/rkgen-logo.png";
     const PROJECT_URI: vector<u8> = b"https://kgen.io";
     // const MULTISIG_ADDRESS: address =
     //     @0xcbcd4237032113566ef395a3f0dd0a2aad769ee130cce018193c17acbbed57b8;
