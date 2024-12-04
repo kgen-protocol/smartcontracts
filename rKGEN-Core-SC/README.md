@@ -8,6 +8,28 @@ The rKGEN token is designed to represent a fungible asset on the Aptos blockchai
 
 ### Installation
 
+##### Deployment on the mainnet
+
+prequisite:
+Ensure you have Python 3.6+ installed by running `python3 --version`
+
+1. In the terminal, use the following command:
+   `curl -fsSL "https://aptos.dev/scripts/install_cli.py" | python3`
+
+2. Verify the script is installed by opening a new terminal and running `aptos help`
+
+3. Navigate to the root directory and Install there and publish the contract.
+
+```bash
+ cd rKGEN-Core-SC/move
+
+ aptos init
+ # Enter mainnet
+ # Fund the account, created into .aptos/config.yaml (OPTIONAL)
+
+ aptos publish
+```
+
 ##### For use in Node.js or a web application
 
 Install with your favorite package manager such as npm, yarn, or pnpm:
