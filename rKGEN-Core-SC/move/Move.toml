@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-rKGenAdmin='_'
+rKGenAdmin='0x5a96fab415f43721a44c5a761ecfcccc3dae9c21f34313f0e594b49d8d4564f4'
 
 [dev-addresses]
 rKGenAdmin='0x123'

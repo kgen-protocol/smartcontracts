@@ -71,7 +71,7 @@ export function getPackageBytesToPublish(filePath: string) {
 
 // CONSTANTS
 // Setup the client
-export const APTOS_NETWORK: Network = Network.TESTNET;
+export const APTOS_NETWORK: Network = Network.DEVNET;
 export const config = new AptosConfig({ network: APTOS_NETWORK });
 export const aptos = new Aptos(config);
 
@@ -82,7 +82,7 @@ export const address_name = "rKGenAdmin"; // Address name from move.toml
 export const is_deployed = true; // If module is not already deployed, make this
 
 export const multisig = AccountAddress.fromStringStrict(
-  "0x99606551a0f3a5d6ace1edd5a4a9fda132125db3a777598a2c63f53cf44fbde1"
+  "0x2bc8963bd2eaca881ab5cffa0c3db3e9fe7ad8062260900fac5d0829ef1b7b9d"
 );
 export let transactionPayload: TransactionPayloadMultiSig;
 
@@ -123,13 +123,13 @@ export const deployer = Account.fromPrivateKey({
 });
 
 //Multisig Address owner
-const mpath1 = "./keys/programmers/deployer.json";
+const mpath1 = "./keys/m1.json";
 let m1Ac_kp = JSON.parse(fs.readFileSync(mpath1, "utf8"));
 export const m1Ac = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(m1Ac_kp.privateKey),
 });
 
-const mpath2 = "./keys/owner.json";
+const mpath2 = "./keys/m2.json";
 let m2Ac_kp = JSON.parse(fs.readFileSync(mpath2, "utf8"));
 export const m2Ac = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(m2Ac_kp.privateKey),
@@ -140,12 +140,12 @@ export const m3Ac = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(m3Ac_kp.privateKey),
 });
 
-const mpath4 = "./keys/m2.json";
+const mpath4 = "./keys/m4.json";
 let m4Ac_kp = JSON.parse(fs.readFileSync(mpath4, "utf8"));
 export const m4Ac = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(m4Ac_kp.privateKey),
 });
-const mpath5 = "./keys/m3.json";
+const mpath5 = "./keys/m5.json";
 let m5Ac_kp = JSON.parse(fs.readFileSync(mpath5, "utf8"));
 export const m5Ac = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(m5Ac_kp.privateKey),

@@ -27,13 +27,7 @@ import {
 } from "@aptos-labs/ts-sdk";
 import fs from "fs";
 import { createWallet, fundWallet } from "./createNewkeys";
-
-// Default to devnet, but allow for overriding
-const APTOS_NETWORK: Network = Network.TESTNET;
-
-// Setup the client
-const config = new AptosConfig({ network: APTOS_NETWORK });
-const aptos = new Aptos(config);
+import { aptos } from "./utils";
 
 //Wallet paths
 const mpath1 = "./keys/m1.json";
@@ -213,8 +207,9 @@ const settingUpMultiSigAccount = async () => {
 };
 
 export async function createMultisig3o5() {
-  await creatAndFund();
+  // Uncomment when creating new accounts
+  // await creatAndFund();
   let multisigAddress = await settingUpMultiSigAccount();
   return multisigAddress;
 }
-createMultisig3o5()
+// createMultisig3o5()

@@ -16,6 +16,7 @@ import {
   multisig,
   m1Ac,
   m2Ac,
+  m3Ac,
 } from "./utils";
 import { error } from "console";
 
@@ -379,9 +380,11 @@ export const mint = async (receiver: AccountAddress, amount: AnyNumber) => {
   let lastSeqNo = await getLastSeqNo();
   let txId = parseInt(`${lastSeqNo}`) + 1;
 
+  console.log("🚀 ~ mint ~ txId:", txId)
   // 1st and 3rd Approves the transaction
   await approveMultisigTx(m1Ac, txId);
   await approveMultisigTx(m2Ac, txId);
+  await approveMultisigTx(m3Ac, txId);
 
   console.log(
     "\nCan be execute the mint transaction as it already has 2 approvals."
