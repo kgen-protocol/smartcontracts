@@ -6,6 +6,7 @@ import {
   compilePackage,
   deployer,
   getPackageBytesToPublish,
+  is_deployed,
   module_file_name,
   output_file_path,
   sender,
@@ -65,7 +66,7 @@ const main = async () => {
     "🚀 ~ main ~ deployer.accountAddress:",
     deployer.accountAddress.toString()
   );
-  if (true) {
+  if (!is_deployed) {
     console.log("\n=== Compiling rKGEN package locally ===");
     let tx = await compileAndDeployModule(
       module_file_name,

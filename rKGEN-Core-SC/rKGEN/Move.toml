@@ -1,0 +1,22 @@
+[package]
+name = "rKGEN"
+version = "1.0.0"
+authors = []
+
+[addresses]
+rKGenAdmin='_'
+
+[dev-addresses]
+rKGenAdmin='0x4814ed6356aec2078bcfa3514e55ecee27825c204cc7be0319d3b355b9a8e703'
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'mainnet'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dev-dependencies]

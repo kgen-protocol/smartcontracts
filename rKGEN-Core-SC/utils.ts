@@ -71,13 +71,13 @@ export function getPackageBytesToPublish(filePath: string) {
 
 // CONSTANTS
 // Setup the client
-export const APTOS_NETWORK: Network = Network.DEVNET;
+export const APTOS_NETWORK: Network = Network.TESTNET;
 export const config = new AptosConfig({ network: APTOS_NETWORK });
 export const aptos = new Aptos(config);
 
-export const module_file_name = "move"; // Path to the package which has the module
-export const module_name = "rKGen";
-export const output_file_path = "move/rkGen.json"; // Path to JSON file
+export const module_file_name = "rKGEN"; // Path to the package which has the module
+export const module_name = "rKGEN";
+export const output_file_path = "rKGEN/rKGen.json"; // Path to JSON file
 export const address_name = "rKGenAdmin"; // Address name from move.toml
 export const is_deployed = true; // If module is not already deployed, make this
 
