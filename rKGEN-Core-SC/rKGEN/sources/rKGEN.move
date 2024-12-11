@@ -600,9 +600,12 @@ module rKGenAdmin::rKGEN {
         );
     }
 
-    /// Burn fungible assets as the owner of metadata object. Only invoked by the admin
-    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedRKGenAsset, Admin {
+    // Burn fungible assets as the owner of metadata object. Only invoked by the admin
+    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedRKGenAsset, MintingManager, Admin {
+        // Ensure that only admin can remove a receiver
         assert_admin(admin);
+        // Ensure that only admin can burn from burn_vault
+            assert_burn_vault(&from);
         let asset = get_metadata();
         let burn_ref = &authorized_borrow_refs(asset).burn_ref;
         let from_wallet = primary_fungible_store::primary_store(from, asset);
@@ -645,6 +648,13 @@ module rKGenAdmin::rKGEN {
         assert!(
             borrow_global<Admin>(@rKGenAdmin).admin == signer::address_of(deployer),
             error::unauthenticated(ENOT_TREASURY_ADDRESS)
+        );
+    }
+
+    inline fun assert_burn_vault(deployer: &address) {
+        assert!(
+            borrow_global<MintingManager>(@rKGenAdmin).burnable == *deployer,
+            error::unauthenticated(ENOT_BURNVAULT)
         );
     }
 
