@@ -6,12 +6,12 @@ module rKGenAdmin::rKGEN {
         TransferRef,
         BurnRef,
         Metadata,
-        FungibleAsset,
-        FungibleStore
+        FungibleAsset
     };
-    use aptos_framework::primary_fungible_store;
-    use aptos_framework::dispatchable_fungible_asset;
     use aptos_framework::function_info;
+    use aptos_framework::dispatchable_fungible_asset;
+    use aptos_framework::primary_fungible_store;
+    use aptos_framework::system_addresses;
     use std::signer;
     use std::option;
     use aptos_std::string_utils::{to_string};
@@ -30,6 +30,7 @@ module rKGenAdmin::rKGEN {
     const ECANNOT_DELETE_TREASURY_ADDRESS: u64 = 7;
     const EINVALIDRECEIVERORSENDER: u64 = 8;
     const ENOT_BURNVAULT: u64 = 9;
+    const ENOT_VALID_ADDRESS: u64 = 10;
 
     // Metadata values for the fungible asset
     const ASSET_SYMBOL: vector<u8> = b"rKGEN";
@@ -281,7 +282,7 @@ module rKGenAdmin::rKGEN {
     /* Dispatchable Hooks */
     /// Deposit function override to impose only whitlisted receiver can transfer through native method.
     public fun deposit<T: key>(
-        store: Object<T>, fa: FungibleAsset, transfer_ref: &TransferRef
+        store: Object<T>, fa: FungibleAsset, _transfer_ref: &TransferRef
     ){
         fungible_asset::deposit(store, fa);
     }
@@ -356,6 +357,12 @@ module rKGenAdmin::rKGEN {
     public entry fun update_admin(admin_addr: &signer, new_admin: address) acquires Admin {
         // Ensure that only admin can add a new admin
         assert_admin(admin_addr);
+
+        // Ensure that new_admin should be a valid address
+        assert!(
+            new_admin != @0x0 && !system_addresses::is_framework_reserved_address(new_admin),
+            error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
         assert!(
             signer::address_of(admin_addr) != new_admin,
             error::already_exists(EALREADY_EXIST)
@@ -380,6 +387,12 @@ module rKGenAdmin::rKGEN {
     ) acquires Admin, MintingManager {
         // Ensure that only admin can add a new admin
         assert_admin(admin_addr);
+        // Ensure that new_address should be a valid address
+        assert!(
+            new_address != @0x0 && !system_addresses::is_framework_reserved_address(new_address),
+            error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
+
         // Get the Admin Role storage reference
         let admin_struct = borrow_global_mut<MintingManager>(@rKGenAdmin);
 
@@ -404,6 +417,12 @@ module rKGenAdmin::rKGEN {
     ) acquires Admin, MintingManager {
         // Ensure that only admin can add a new admin
         assert_admin(admin_addr);
+        // Ensure that new_address should be a valid address
+        assert!(
+            new_address != @0x0 && !system_addresses::is_framework_reserved_address(new_address),
+            error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
+
         // Get the Admin Role storage reference
         let admin_struct = borrow_global_mut<MintingManager>(@rKGenAdmin);
 
@@ -417,7 +436,7 @@ module rKGenAdmin::rKGEN {
 
         event::emit(
             UpdatedBurnVault {
-                role: to_string(&std::string::utf8(b"New Admin Added")),
+                role: to_string(&std::string::utf8(b"Burnable Address Updated")),
                 updated_address: new_address
             }
         );
@@ -600,12 +619,17 @@ module rKGenAdmin::rKGEN {
         );
     }
 
-    // Burn fungible assets as the owner of metadata object. Only invoked by the admin
-    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedRKGenAsset, MintingManager, Admin {
-        // Ensure that only admin can remove a receiver
+    /// Burn fungible assets as the owner of metadata object. Only invoked by the admin
+    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedRKGenAsset, Admin, MintingManager {
         assert_admin(admin);
-        // Ensure that only admin can burn from burn_vault
-            assert_burn_vault(&from);
+
+        // Get the Admin Role storage reference
+        let admin_struct = borrow_global_mut<MintingManager>(@rKGenAdmin);
+
+        // Check if the from is burnable vault
+        assert!(
+            admin_struct.burnable == from, error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
         let asset = get_metadata();
         let burn_ref = &authorized_borrow_refs(asset).burn_ref;
         let from_wallet = primary_fungible_store::primary_store(from, asset);
@@ -648,13 +672,6 @@ module rKGenAdmin::rKGEN {
         assert!(
             borrow_global<Admin>(@rKGenAdmin).admin == signer::address_of(deployer),
             error::unauthenticated(ENOT_TREASURY_ADDRESS)
-        );
-    }
-
-    inline fun assert_burn_vault(deployer: &address) {
-        assert!(
-            borrow_global<MintingManager>(@rKGenAdmin).burnable == *deployer,
-            error::unauthenticated(ENOT_BURNVAULT)
         );
     }
 
