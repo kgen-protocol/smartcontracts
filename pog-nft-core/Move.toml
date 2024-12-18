@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-PoGAdmin = "0x51c6a00978d0ac4b4c5ccc53c9a340be14ba91aba87a8e061f01b7a3e432820c"
+PoGAdmin = "_"
 
 [dev-addresses]
 PoGAdmin = "0x123"
