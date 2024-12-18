@@ -1,0 +1,27 @@
+[package]
+name = "PoGNFT"
+version = "1.0.0"
+authors = []
+
+[addresses]
+PoGAdmin = "0x51c6a00978d0ac4b4c5ccc53c9a340be14ba91aba87a8e061f01b7a3e432820c"
+
+[dev-addresses]
+PoGAdmin = "0x123"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.AptosToken]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-token"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'mainnet'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dev-dependencies]
