@@ -4,10 +4,10 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-PoGAdmin = "_"
+KGeN = "_"
 
 [dev-addresses]
-PoGAdmin = "0x123"
+KGeN = "0x123"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
