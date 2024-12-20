@@ -28,6 +28,8 @@ module PoGAdmin::PoGNFT {
     use aptos_framework::event;
     use aptos_std::string_utils::{to_string};
     use aptos_std::from_bcs;
+    use PoGAdmin::kgen_oracle_storage::{Self};
+
 
     //  ======Constants======
 
@@ -133,6 +135,7 @@ module PoGAdmin::PoGNFT {
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     // Admin: stores the module admin address.
+    // TODO Add allow data by oracle
     struct Admin has key {
         // Stores the address of the module admin
         admin: address
@@ -558,6 +561,150 @@ module PoGAdmin::PoGNFT {
         admin.admin = new_admin;
     }
 
+    // Mint function only invoked after oracle
+    public entry fun mint_player_nft_by_oracle(
+        user: &signer,
+        admin: &signer,
+        player_username: String,
+        avatar_cid: String,
+        i_keys: vector<String>,
+        i_values: vector<vector<u8>>
+     ) acquires Counter, KGenPoACollection, TokenCore, Admin, KGenToken, BaseURI, PoGAllocated {
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ECALLER_NOT_ADMIN)
+        );
+
+        assert!(
+            !is_pog_allocated(signer::address_of(user)),
+            error::permission_denied(EMAX_TOKEN_LIMIT)
+        );
+
+        // Collection name of the token.
+        let collection_name = string::utf8(COLLECTION_NAME);
+
+        // Storing the counter value in a variable.
+        let counter_value = borrow_global_mut<Counter>(@PoGAdmin);
+
+        // Creating the Token name.
+        let token_name = string::utf8(b"kgen.io-#");
+        string::append(&mut token_name, to_string(&counter_value.count));
+
+        let token_description =
+            string::utf8(
+                b"This Soulbound Token represents a unique gaming identity, evolving dynamically with badge levels and encrypted score data."
+            );
+
+        // fetching the signer Object
+        let creator = get_token_signer(get_token_signer_address());
+
+        let constructor_ref =
+            mint_internal(
+                &creator,
+                collection_name,
+                token_description,
+                token_name,
+                avatar_cid,
+                vector[],
+                vector[],
+                vector[]
+            );
+
+        let transfer_ref = object::generate_transfer_ref(&constructor_ref);
+        // Transfers the token to the `soul_bound_to` address
+        let linear_transfer_ref = object::generate_linear_transfer_ref(&transfer_ref);
+        object::transfer_with_ref(linear_transfer_ref, signer::address_of(user));
+        // Disables ungated transfer, thus making the token soulbound and non-transferable
+        object::disable_ungated_transfer(&transfer_ref);
+
+        // Emmiting the mint event
+        let mint_event = NFTMintedToPlayerEvent {
+            token_name,
+            to: signer::address_of(user),
+            counter: counter_value.count
+        };
+
+        event::emit(mint_event);
+
+        if (!exists<PoGAllocated>(signer::address_of(user))) {
+            move_to(user, PoGAllocated { count: 1 });
+        } else {
+            let count = borrow_global_mut<PoGAllocated>(signer::address_of(user));
+            count.count = count.count + 1;
+        };
+
+        let token_address =
+            token::create_token_address(
+                &get_token_signer_address(),
+                &collection_name,
+                &token_name
+            );
+        let aptos_token = borrow_global<KGenToken>(token_address);
+
+        let (keys, values) = kgen_oracle_storage::get_player_scores(signer::address_of(user));
+
+
+        // TODO Match keys and values from oracle and input
+
+        let mutator_ref = &aptos_token.property_mutator_ref;
+
+        property_map::add_typed(
+            mutator_ref,
+            string::utf8(b"Username"),
+            player_username
+        );
+
+        let keys_len = vector::length(&keys);
+        // let values_len = vector::length(&values);
+        assert!(
+            keys_len ==  vector::length(&values),
+            error::invalid_argument(EINVALID_VECTOR_LENGTH)
+        );
+
+        
+        let tp = string::utf8(b"0x1::string::String");
+
+        let i = 0;
+        while (i < keys_len) {
+            let key = *vector::borrow(&keys, i);
+            let value = *vector::borrow(&values, i);
+
+            // Validate badge values
+            if (key == string::utf8(b"Proof of Human Badge")) {
+                assert!(
+                    from_bcs::to_u8(value) <= 2,
+                    error::invalid_argument(EINVALID_ATTRIBUTE_VALUE)
+                );
+                tp = string::utf8(b"u8");
+            } else if (key == string::utf8(b"Proof of Play Badge")
+                || key == string::utf8(b"Proof of Skill Badge")
+                || key == string::utf8(b"Proof of Commerce Badge")
+                || key == string::utf8(b"Proof of Social Badge")) {
+                assert!(
+                    from_bcs::to_u8(value) <= 10,
+                    error::invalid_argument(EINVALID_ATTRIBUTE_VALUE)
+                );
+                tp = string::utf8(b"u8");
+            };
+            property_map::add(mutator_ref, key, tp, value);
+            tp = string::utf8(b"0x1::string::String");
+            i = i + 1;
+        };
+
+        // Emit player score update event
+        let score_event = PlayerScoreUpdatedEvent {
+            token_name,
+            owner: signer::address_of(user)
+        };
+        event::emit(score_event);
+
+        // Emit counter increment event
+        counter_value.count = counter_value.count + 1;
+        let counter_event = CounterIncrementedEvent { value: counter_value.count };
+        event::emit(counter_event);
+
+     }
+
     // mint_player_nft(): Mints a soulbound NFT for a player with detailed attributes.
     public entry fun mint_player_nft(
         user: &signer,
@@ -909,6 +1056,19 @@ module PoGAdmin::PoGNFT {
         count.count = count.count - 1;
 
         event::emit(AdminBurnedEvent { token_name });
+    }
+
+    // Update method only callable by oracle
+    public entry fun update_player_score_by_oracle(
+        user: &signer,
+        admin: &signer,
+        token_name: String,
+        i_keys: vector<String>,
+        i_values: vector<vector<u8>>
+    ) acquires KGenToken, Admin {
+        let (k, v) = kgen_oracle_storage::get_player_scores(signer::address_of(user));
+        // TODO Match keys and values from oracle and input
+        update_player_score(user, admin, token_name, k, v);
     }
 
     public entry fun update_player_score(

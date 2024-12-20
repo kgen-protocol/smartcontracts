@@ -24,4 +24,7 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'mainnet'
 subdir = 'aptos-move/framework/aptos-token-objects'
 
+[dependencies.kgen_oracle_storage]
+local = '../KGeN-oracle_storage'
+
 [dev-dependencies]

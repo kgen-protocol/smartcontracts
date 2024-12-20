@@ -1,13 +1,11 @@
 [package]
-name = "oracle_storage"
+name = "kgen_oracle_storage"
 version = "1.0.0"
 authors = []
 
 [addresses]
-Admin = "1a49044a891537a5260d0a7558c85de1eeae3e766f26dbcb55fac491c8b146c2"
+Admin = "_"
 
-[dev-addresses]
-Admin = '0x12345'
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
