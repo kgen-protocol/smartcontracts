@@ -136,7 +136,6 @@ module KGeN::PoGNFT {
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     // Admin: stores the module admin address.
-    // TODO Add allow data by oracle
     struct Admin has key {
         // Stores the address of the module admin
         admin: address,
@@ -684,7 +683,6 @@ module KGeN::PoGNFT {
         let (okeys, ovalues) =
             kgen_oracle_storage::get_player_props(signer::address_of(user));
 
-        // TODO Match keys and values from oracle and input
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
 
         let mutator_ref = &aptos_token.property_mutator_ref;
@@ -1110,7 +1108,6 @@ module KGeN::PoGNFT {
     ) acquires KGenToken, Admin {
         let (okeys, ovalues) =
             kgen_oracle_storage::get_player_props(signer::address_of(user));
-        // TODO Match keys and values from oracle and input
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
         update_player_score(user, admin, token_name, keys, values);
     }
