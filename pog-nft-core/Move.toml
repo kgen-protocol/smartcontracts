@@ -1,0 +1,30 @@
+[package]
+name = "PoGNFT"
+version = "1.0.0"
+authors = []
+
+[addresses]
+KGeN = "_"
+
+[dev-addresses]
+KGeN = "0x123"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.AptosToken]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-token"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'mainnet'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dependencies.kgen_oracle_storage]
+local = '../KGeN-oracle_storage'
+
+[dev-dependencies]
