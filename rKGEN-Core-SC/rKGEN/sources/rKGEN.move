@@ -284,7 +284,7 @@ module rKGenAdmin::rKGEN {
     public fun deposit<T: key>(
         store: Object<T>, fa: FungibleAsset, _transfer_ref: &TransferRef
     ){
-        fungible_asset::deposit(store, fa);
+        fungible_asset::deposit_with_ref(_transfer_ref, store, fa);
     }
 
     /* Dispatchable Hooks */
