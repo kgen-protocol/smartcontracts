@@ -15,7 +15,9 @@ npm-debug.log
 tmp/
 indigg/typescript/facoin/facoin.json
 *.bak
+.aptos
 keys
+package-lock.json
 
 # Vim swap files
 *.swp

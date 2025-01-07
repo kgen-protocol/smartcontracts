@@ -1,0 +1,19 @@
+[package]
+name = "airdrop"
+version = "1.0.0"
+authors = []
+
+[addresses]
+KGeNAdmin='72ae0fdd43cccb8bc04e9f8953065fa9eccacd47dbbd97c51ae978f72a6a015d'
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "72d90dc"
+subdir = "aptos-framework"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = '81a2f42'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dev-dependencies]
