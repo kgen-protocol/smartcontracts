@@ -31,6 +31,7 @@ module rKGenAdmin::rKGEN {
     const EINVALIDRECEIVERORSENDER: u64 = 8;
     const ENOT_BURNVAULT: u64 = 9;
     const ENOT_VALID_ADDRESS: u64 = 10;
+    const EINVALID_AMOUNT: u64 = 11;
 
     // Metadata values for the fungible asset
     const ASSET_SYMBOL: vector<u8> = b"rKGEN";
@@ -151,7 +152,7 @@ module rKGenAdmin::rKGEN {
     /*Views*/
     #[view]
     // Return the address of the managed fungible asset that's created when this module is deployed.
-    public fun get_metadata_addr(): address{
+    public fun get_metadata_addr(): address {
         object::create_object_address(&@rKGenAdmin, ASSET_SYMBOL)
     }
 
@@ -283,7 +284,7 @@ module rKGenAdmin::rKGEN {
     /// Deposit function override to impose only whitlisted receiver can transfer through native method.
     public fun deposit<T: key>(
         store: Object<T>, fa: FungibleAsset, _transfer_ref: &TransferRef
-    ){
+    ) {
         fungible_asset::deposit_with_ref(_transfer_ref, store, fa);
     }
 
@@ -294,6 +295,7 @@ module rKGenAdmin::rKGEN {
     ): FungibleAsset acquires WhiteListed {
         let owner = object::owner(store);
         assert!(verify_sender(&owner), error::unauthenticated(ENOT_WHITELIST_SENDER));
+        assert_amount(amount);
 
         // Withdraw the remaining amount from the input store and return it.
         fungible_asset::withdraw_with_ref(transfer_ref, store, amount)
@@ -307,6 +309,7 @@ module rKGenAdmin::rKGEN {
         admin: &signer, to: address, amount: u64
     ) acquires ManagedRKGenAsset, MintingManager, WhiteListed {
         assert_minter(&signer::address_of(admin));
+        assert_amount(amount);
 
         assert!(
             verify_treasury(&to),
@@ -333,6 +336,7 @@ module rKGenAdmin::rKGEN {
     public entry fun transfer(
         sender: &signer, to: address, amount: u64
     ) acquires ManagedRKGenAsset, WhiteListed {
+        assert_amount(amount);
         assert!(
             verify_sender(&signer::address_of(sender)) || verify_receiver(&to),
             error::invalid_argument(EINVALIDRECEIVERORSENDER)
@@ -360,7 +364,8 @@ module rKGenAdmin::rKGEN {
 
         // Ensure that new_admin should be a valid address
         assert!(
-            new_admin != @0x0 && !system_addresses::is_framework_reserved_address(new_admin),
+            new_admin != @0x0
+                && !system_addresses::is_framework_reserved_address(new_admin),
             error::unauthenticated(ENOT_VALID_ADDRESS)
         );
         assert!(
@@ -389,7 +394,8 @@ module rKGenAdmin::rKGEN {
         assert_admin(admin_addr);
         // Ensure that new_address should be a valid address
         assert!(
-            new_address != @0x0 && !system_addresses::is_framework_reserved_address(new_address),
+            new_address != @0x0
+                && !system_addresses::is_framework_reserved_address(new_address),
             error::unauthenticated(ENOT_VALID_ADDRESS)
         );
 
@@ -419,7 +425,8 @@ module rKGenAdmin::rKGEN {
         assert_admin(admin_addr);
         // Ensure that new_address should be a valid address
         assert!(
-            new_address != @0x0 && !system_addresses::is_framework_reserved_address(new_address),
+            new_address != @0x0
+                && !system_addresses::is_framework_reserved_address(new_address),
             error::unauthenticated(ENOT_VALID_ADDRESS)
         );
 
@@ -620,8 +627,11 @@ module rKGenAdmin::rKGEN {
     }
 
     /// Burn fungible assets as the owner of metadata object. Only invoked by the admin
-    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedRKGenAsset, Admin, MintingManager {
+    public entry fun burn(
+        admin: &signer, from: address, amount: u64
+    ) acquires ManagedRKGenAsset, Admin, MintingManager {
         assert_admin(admin);
+        assert_amount(amount);
 
         // Get the Admin Role storage reference
         let admin_struct = borrow_global_mut<MintingManager>(@rKGenAdmin);
@@ -672,6 +682,13 @@ module rKGenAdmin::rKGEN {
         assert!(
             borrow_global<Admin>(@rKGenAdmin).admin == signer::address_of(deployer),
             error::unauthenticated(ENOT_TREASURY_ADDRESS)
+        );
+    }
+
+    inline fun assert_amount(amount: u64) {
+        assert!(
+            amount > 0,
+            error::invalid_argument(EINVALID_AMOUNT)
         );
     }
 
