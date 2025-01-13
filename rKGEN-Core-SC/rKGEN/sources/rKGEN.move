@@ -21,17 +21,32 @@ module rKGenAdmin::rKGEN {
     use std::string::{Self, String, utf8};
 
     // Constants for error codes to simplify error handling and debugging 0x4368a9b21de66ed31a5cf95c9cab30b062f0f0724d0aa291b1ace2d812c46605
+    /// It is already exist
     const EALREADY_EXIST: u64 = 1;
+    /// Provided address is not a treasury address
     const ENOT_TREASURY_ADDRESS: u64 = 2;
+    /// Provided address is not a whitelist sender address
     const ENOT_WHITELIST_SENDER: u64 = 3;
+    /// Provided address is not a whitelist receiver address
     const ENOT_WHITELIST_RECEIVER: u64 = 4;
+    /// Only admin can invoke this
     const EONLY_ADMIN: u64 = 5;
+    /// Provided address is not Admin
     const ENOT_ADMIN: u64 = 6;
+    /// Here treasury address cannot be deleted
     const ECANNOT_DELETE_TREASURY_ADDRESS: u64 = 7;
+    /// Provided address is neither a whitelist sender nor receiver address
     const EINVALIDRECEIVERORSENDER: u64 = 8;
+    /// Provided address is not a burnable address
     const ENOT_BURNVAULT: u64 = 9;
+    /// Provided address is not a valid address
     const ENOT_VALID_ADDRESS: u64 = 10;
-    const EINVALID_AMOUNT: u64 = 11;
+    /// Only owner of the module can invoke this
+    const ENOT_OWNER: u64 = 11;
+    /// No nominated address here
+    const ENO_PENDING: u64 = 12;
+    /// Please enter amount more than 0
+    const EINVALID_AMOUNT: u64 = 13;
 
     // Metadata values for the fungible asset
     const ASSET_SYMBOL: vector<u8> = b"rKGEN";
@@ -51,6 +66,11 @@ module rKGenAdmin::rKGEN {
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct Admin has key {
         admin: address
+    }
+
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    struct NominatedAdmin has key {
+        nominated_admin: option::Option<address>
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -98,6 +118,13 @@ module rKGenAdmin::rKGEN {
     struct UpdatedAdmin has drop, store {
         role: String,
         added_admin: address
+    }
+
+    // Triggered when onwer nominate the new admin
+    #[event]
+    struct NominatedAdminEvent has drop, store {
+        role: String,
+        nominated_admin: address
     }
 
     // Triggered when onwer updated the minter (multisig account)
@@ -168,6 +195,13 @@ module rKGenAdmin::rKGEN {
     // Return the admin address.
     public fun get_admin(): address acquires Admin {
         borrow_global<Admin>(@rKGenAdmin).admin
+    }
+
+    //Function to view the available admin address
+    #[view]
+    // Return the admin address.
+    public fun get_nominated_admin(): option::Option<address> acquires NominatedAdmin {
+        borrow_global<NominatedAdmin>(@rKGenAdmin).nominated_admin
     }
 
     //Function to view the available burnable address
@@ -358,7 +392,22 @@ module rKGenAdmin::rKGEN {
     }
 
     /* -----  Entry functions that can be called from outside by Admin Only ----- */
-    public entry fun update_admin(admin_addr: &signer, new_admin: address) acquires Admin {
+    // Upgraded code to store nominated admin
+    public entry fun init_nominated_resource(owner: &signer){
+        assert!(
+            signer::address_of(owner) == @rKGenAdmin,
+            error::permission_denied(ENOT_OWNER)
+        );
+        assert!(
+            !exists<NominatedAdmin>(@rKGenAdmin),
+            error::already_exists(EALREADY_EXIST)
+        );
+        move_to(owner, NominatedAdmin { nominated_admin: option::none() });
+    }
+
+    public entry fun update_admin(
+        admin_addr: &signer, new_admin: address
+    ) acquires Admin, NominatedAdmin {
         // Ensure that only admin can add a new admin
         assert_admin(admin_addr);
 
@@ -373,15 +422,46 @@ module rKGenAdmin::rKGEN {
             error::already_exists(EALREADY_EXIST)
         );
 
+        // Get the Nominated Admin Role storage reference
+        let admin_struct = borrow_global_mut<NominatedAdmin>(@rKGenAdmin);
+        // Nominate the new admin
+        admin_struct.nominated_admin = option::some(new_admin);
+
+        event::emit(
+            NominatedAdminEvent {
+                role: to_string(
+                    &std::string::utf8(
+                        b"New Admin Nominated, Now new admin need to accept the role"
+                    )
+                ),
+                nominated_admin: new_admin
+            }
+        );
+    }
+
+    public entry fun accept_admin_role(new_admin: &signer) acquires NominatedAdmin, Admin {
+        let n_admin_struct = borrow_global_mut<NominatedAdmin>(@rKGenAdmin);
+        // Ensure that nominated address exist
+        let pending_admin = option::borrow(&n_admin_struct.nominated_admin);
+        assert!(
+            !option::is_none(&n_admin_struct.nominated_admin),
+            error::unauthenticated(ENO_PENDING)
+        );
+        assert!(
+            *pending_admin == signer::address_of(new_admin),
+            error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
+
         // Get the Admin Role storage reference
         let admin_struct = borrow_global_mut<Admin>(@rKGenAdmin);
         // Add the new admin
-        admin_struct.admin = new_admin;
+        admin_struct.admin = signer::address_of(new_admin);
+        n_admin_struct.nominated_admin = option::none();
 
         event::emit(
             UpdatedAdmin {
                 role: to_string(&std::string::utf8(b"New Admin Added")),
-                added_admin: new_admin
+                added_admin: signer::address_of(new_admin)
             }
         );
     }
