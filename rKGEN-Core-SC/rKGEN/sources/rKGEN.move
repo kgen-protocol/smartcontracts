@@ -761,7 +761,7 @@ module rKGenAdmin::rKGEN {
     inline fun assert_admin(deployer: &signer) {
         assert!(
             borrow_global<Admin>(@rKGenAdmin).admin == signer::address_of(deployer),
-            error::unauthenticated(ENOT_TREASURY_ADDRESS)
+            error::unauthenticated(EONLY_ADMIN)
         );
     }
 
@@ -775,7 +775,7 @@ module rKGenAdmin::rKGEN {
     inline fun assert_minter(deployer: &address) {
         assert!(
             borrow_global<MintingManager>(@rKGenAdmin).minter == *deployer,
-            error::unauthenticated(ENOT_TREASURY_ADDRESS)
+            error::unauthenticated(ENOT_VALID_ADDRESS)
         );
     }
 
