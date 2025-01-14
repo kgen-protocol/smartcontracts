@@ -1,4 +1,4 @@
-module KGeNAdmin::rkgen_staking {
+module KGeNAdmin::rKGeN_staking {
     use std::error;
     use std::signer;
     use std::string::{String};
