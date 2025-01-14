@@ -549,6 +549,12 @@ module rKGenAdmin::rKGEN {
 
             // Add the new minter to the minter list
             vector::push_back<address>(&mut s_struct.sender_vec, new_address);
+            event::emit(
+            AddedSenderAddress {
+                msg: to_string(&std::string::utf8(b"New Sender Address Whitelisted")),
+                added_address: new_address
+            }
+        );
         };
 
         // Get the Treasury storage reference

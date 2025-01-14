@@ -8,6 +8,7 @@ module KGeNAdmin::airdrop {
     use aptos_std::string_utils::{to_string};
     use std::error;
     use std::vector;
+    use std::option;
     use aptos_std::ed25519;
     use aptos_std::hash;
     use std::bcs;
@@ -24,6 +25,8 @@ module KGeNAdmin::airdrop {
     const ENOT_VALID_ADDRESS: u64 = 3;
     /// Provided argument is already present
     const EALREADY_EXIST: u64 = 4;
+    /// No address is nominated
+    const ENO_NOMINATED: u64 = 5;
 
     /// Seed for creating a resource account
     const LAUNCHPAD_SEED: vector<u8> = b"rKGeN Launchpad";
@@ -34,7 +37,8 @@ module KGeNAdmin::airdrop {
         admin: address,
         reward_signer_key: vector<u8>, // Public key of the reward signer
         resource_account: address, // Resource account address
-        resource_account_cap: account::SignerCapability // Capability for the resource account
+        resource_account_cap: account::SignerCapability, // Capability for the resource account
+        nominated_admin: option::Option<address>
     }
 
     /// Manages user-specific counters (nonces) to prevent duplication
@@ -72,6 +76,13 @@ module KGeNAdmin::airdrop {
 
     // Event emitted when the admin role is updated
     #[event]
+    struct NominatedAdminEvent has drop, store {
+        role: String, // Description of the role change
+        nominated_admin: address // Address of the new admin
+    }
+
+    // Event emitted when the admin role is updated
+    #[event]
     struct UpdatedAdmin has drop, store {
         role: String, // Description of the role change
         added_admin: address // Address of the new admin
@@ -86,6 +97,12 @@ module KGeNAdmin::airdrop {
     // Return the admin address.
     public fun get_admin(): address acquires AdminStore {
         borrow_global<AdminStore>(@KGeNAdmin).admin
+    }
+
+    #[view]
+    // Return the nominated admin address.
+    public fun get_nominated_admin(): option::Option<address> acquires AdminStore {
+        borrow_global<AdminStore>(@KGeNAdmin).nominated_admin
     }
 
     #[view]
@@ -124,7 +141,8 @@ module KGeNAdmin::airdrop {
                 admin: signer::address_of(admin),
                 reward_signer_key: vector::empty<u8>(),
                 resource_account: signer::address_of(&resource_account),
-                resource_account_cap
+                resource_account_cap,
+                nominated_admin: option::none()
             }
         );
     }
@@ -147,7 +165,9 @@ module KGeNAdmin::airdrop {
         event::emit(UpdatedSigner { new_signer: new_key });
     }
 
-    public entry fun update_admin(admin_addr: &signer, new_admin: address) acquires AdminStore {
+    public entry fun update_admin(
+        admin_addr: &signer, new_admin: address
+    ) acquires AdminStore {
         // Ensure that only admin can add a new admin
         assert_admin(admin_addr);
 
@@ -162,15 +182,43 @@ module KGeNAdmin::airdrop {
             error::already_exists(EALREADY_EXIST)
         );
 
-        // Get the Admin Role storage reference
+        // Get the Nominated Admin Role storage reference
         let admin_struct = borrow_global_mut<AdminStore>(@KGeNAdmin);
+        // Nominate the new admin
+        admin_struct.nominated_admin = option::some(new_admin);
+
+        event::emit(
+            NominatedAdminEvent {
+                role: to_string(
+                    &std::string::utf8(
+                        b"New Admin Nominated, Now new admin need to accept the role"
+                    )
+                ),
+                nominated_admin: new_admin
+            }
+        );
+    }
+
+    public entry fun accept_admin_role(new_admin: &signer) acquires AdminStore {
+        let admin_struct = borrow_global_mut<AdminStore>(@KGeNAdmin);
+        // Ensure that nominated address exist
+        let pending_admin = option::borrow(&admin_struct.nominated_admin);
+        assert!(
+            !option::is_none(&admin_struct.nominated_admin),
+            error::unauthenticated(ENO_NOMINATED)
+        );
+        assert!(
+            *pending_admin == signer::address_of(new_admin),
+            error::unauthenticated(ENOT_VALID_ADDRESS)
+        );
         // Add the new admin
-        admin_struct.admin = new_admin;
+        admin_struct.admin = signer::address_of(new_admin);
+        admin_struct.nominated_admin = option::none();
 
         event::emit(
             UpdatedAdmin {
                 role: to_string(&std::string::utf8(b"New Admin Added")),
-                added_admin: new_admin
+                added_admin: signer::address_of(new_admin)
             }
         );
     }
