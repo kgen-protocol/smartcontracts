@@ -165,7 +165,7 @@ module KGeNAdmin::airdrop {
         event::emit(UpdatedSigner { new_signer: new_key });
     }
 
-    public entry fun update_admin(
+    public entry fun nominate_admin(
         admin_addr: &signer, new_admin: address
     ) acquires AdminStore {
         // Ensure that only admin can add a new admin
