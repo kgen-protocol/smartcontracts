@@ -15,7 +15,7 @@ module KGeNAdmin::rKGeN_staking {
     use aptos_framework::system_addresses;
     use aptos_std::string_utils::{to_string};
 
-    // ====CONSTANT====
+    // =====================================   ERROR CODES   =====================================
     const E_NOT_ADMIN: u64 = 1;
     const ERANGE_NOT_FOUND: u64 = 2;
     const EMIN_AMOUNT_GREATER_THAN_MAX: u64 = 3;
@@ -34,6 +34,7 @@ module KGeNAdmin::rKGeN_staking {
     const ENOT_VALID_ADDRESS: u64 = 16;
     const EALREADY_EXIST: u64 = 17;
     const ENO_NOMINATED: u64 = 18;
+    const EHARVEST_DURATION_OVER: u64 = 19;
 
     // =====================================    STORAGE   =====================================
 
@@ -530,6 +531,12 @@ module KGeNAdmin::rKGeN_staking {
             error::invalid_argument(EHARVEST_TOO_SOON)
         );
 
+        //  ensure the current time is within the staking duration
+        assert!(
+            current_time <= (stake.duration * 24 * 60 * 60),
+            error::invalid_argument(EHARVEST_DURATION_OVER)
+        );
+
         let total_rewards_earned =
             get_available_rewards(
                 stake.start_time,
@@ -609,7 +616,7 @@ module KGeNAdmin::rKGeN_staking {
         let res_config = borrow_global<Admin>(@KGeNAdmin);
         let resource_signer =
             account::create_signer_with_capability(&res_config.signer_cap);
-        rkgen_transfer(&resource_signer, user_address, current_reward);
+        rkgen_transfer(&resource_signer, user_address, total_payout);
 
         // Update the last harvest time to the current time
         update_total_claimed(stake, current_reward);
@@ -681,7 +688,6 @@ module KGeNAdmin::rKGeN_staking {
         total_claimed: u64
     ) {
         let current_time = timestamp::now_seconds();
-        // let current_time = 1736701766;
 
         let stake_id = stake_list_table.stake_id;
         let stake_detail = StakeDetails {
@@ -737,7 +743,9 @@ module KGeNAdmin::rKGeN_staking {
                     start_time: _,
                     last_harvest_time: _,
                     total_claimed: _
+
                 } = *stake_details;
+
                 stake_id == input_stake_id
             }
         );
@@ -770,7 +778,7 @@ module KGeNAdmin::rKGeN_staking {
     }
 
     // Get the total rewards that have been claimed by the user for a specific stake.
-    fun get_total_claimed_rewards(stake: &StakeDetails): u64 {
+    fun get_total_claimed_rewards(stake: &mut StakeDetails): u64 {
         stake.total_claimed
     }
 
@@ -794,7 +802,7 @@ module KGeNAdmin::rKGeN_staking {
 
     //remove a stake by the stake ID.
     fun remove_stake(
-        user_stake_table: &mut UserStakes, user_address: address, i_stake_id: u64
+        user_stake_table: &mut UserStakes, user_address: address, input_stake_id: u64
     ) {
         // Borrow the user's stake list
         let user_stake_records =
@@ -813,8 +821,10 @@ module KGeNAdmin::rKGeN_staking {
                     start_time: _,
                     last_harvest_time: _,
                     total_claimed: _
+
                 } = *stake_details;
-                stake_id == i_stake_id
+
+                stake_id == input_stake_id
             }
         );
 
@@ -905,10 +915,11 @@ module KGeNAdmin::rKGeN_staking {
     //  Get a specific stake of user by its ID.
     #[view]
     public fun get_stake_by_stake_id(
-        user_address: address, i_stake_id: u64
+        user_address: address, input_stake_id: u64
     ): StakeDetails acquires UserStakes {
         // Borrow the global UserStakes
         let user_stakes_table = borrow_global<UserStakes>(@KGeNAdmin);
+        validate_harvest_input(user_stakes_table, user_address);
 
         // Access the list of stakes for the user
         let user_stake_records =
@@ -927,8 +938,10 @@ module KGeNAdmin::rKGeN_staking {
                     start_time: _,
                     last_harvest_time: _,
                     total_claimed: _
+
                 } = *stake_details;
-                stake_id == i_stake_id
+
+                stake_id == input_stake_id
             }
         );
 
@@ -946,10 +959,82 @@ module KGeNAdmin::rKGeN_staking {
 
     }
 
-    // // Get the list of authorized platforms.
+    // Get the list of authorized platforms.
     #[view]
     public fun get_authorised_platforms(): vector<address> acquires Admin {
         let platform = borrow_global<Admin>(@KGeNAdmin);
         smart_vector::to_vector(&platform.platform_list)
+    }
+
+    // Get the current reward to harvest
+    #[view]
+    public fun get_current_reward(user_address: address, stake_id: u64): u64 acquires UserStakes {
+        // let user_stake_table = borrow_global_mut<UserStakes>(@KGeNAdmin);
+        // let stake = get_stake(user_stake_table, user_address, stake_id);
+        let stake = get_stake_by_stake_id(user_address, stake_id);
+
+        let current_time = timestamp::now_seconds();
+
+        let total_rewards_earned =
+            get_available_rewards(
+                stake.start_time,
+                stake.apy,
+                stake.amount,
+                current_time
+            );
+
+        let total_rewards_claimed = stake.total_claimed;
+
+        // Calculate the current reward to be harvested
+        let current_reward = total_rewards_earned - total_rewards_claimed;
+        current_reward
+    }
+
+    // get total staked balance of a user
+    #[view]
+    public fun get_staked_balance(user_address: address): u64 acquires UserStakes {
+        let user_stake_table = borrow_global<UserStakes>(@KGeNAdmin);
+
+        let user_stake_records =
+            smart_table::borrow(&user_stake_table.stakes, user_address);
+        let stake_list = user_stake_records.stake_list;
+
+        let i = 0;
+        let total_staked_balance = 0;
+        while (i < vector::length(&stake_list)) {
+            let stake_details = vector::borrow(&stake_list, i);
+            total_staked_balance = stake_details.amount + total_staked_balance;
+            i = i + 1;
+        };
+        total_staked_balance
+    }
+
+    // Get claimable reward for a specific stake
+    #[view]
+    public fun get_total_claimable_reward(
+        user_address: address, stake_id: u64
+    ): u64 acquires UserStakes {
+        let stake = get_stake_by_stake_id(user_address, stake_id);
+        let end_time = stake.start_time + (stake.duration * 24 * 60 * 60);
+        let total_rewards_available =
+            get_available_rewards(
+                stake.start_time,
+                stake.apy,
+                stake.amount,
+                end_time
+            );
+
+        let total_rewards_claimed = stake.total_claimed;
+
+        // Calculate the current reward to be harvested
+        let available_reward = total_rewards_available - total_rewards_claimed;
+
+        // Add the initial stake amount to the available rewards
+
+        let total_claimable = available_reward + stake.amount;
+
+        // Return the total claimable amount
+        total_claimable
+
     }
 }
