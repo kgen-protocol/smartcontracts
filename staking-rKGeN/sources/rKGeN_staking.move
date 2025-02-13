@@ -16,11 +16,10 @@ module KGeNAdmin::rKGeN_staking {
     use aptos_std::string_utils::{to_string};
 
     // =====================================   ERROR CODES   =====================================
-    const E_NOT_ADMIN: u64 = 1;
+    const ECALLER_NOT_ADMIN: u64 = 1;
     const ERANGE_NOT_FOUND: u64 = 2;
     const EMIN_AMOUNT_GREATER_THAN_MAX: u64 = 3;
     const EINVALID_MIN_AMOUNT: u64 = 4;
-    const EINVALID_MIN_AMOUNT_SEQUENCE: u64 = 5;
     const EDURATION_NOT_FOUND: u64 = 6; // "Duration not found (on add stake)."
     const EAMOUNT_NOT_FOUND_FOR_DURATION: u64 = 7; // "Amount does not exist for the specified duration (on add stake)
     const EUSER_NOT_FOUND: u64 = 8;
@@ -35,6 +34,8 @@ module KGeNAdmin::rKGeN_staking {
     const EALREADY_EXIST: u64 = 17;
     const ENO_NOMINATED: u64 = 18;
     const EHARVEST_DURATION_OVER: u64 = 19;
+    const EPLATFORM_NOT_FOUND: u64 = 20;
+    const ESTAKE_DURATION_COMPLETED: u64 = 5;
 
     // =====================================    STORAGE   =====================================
 
@@ -166,7 +167,7 @@ module KGeNAdmin::rKGeN_staking {
         let admin_address = signer::address_of(admin);
 
         // ===Resource acc creation===
-        let seed = b"rKGeN_staking";
+        let seed = b"rkgen_resource_acc_seed";
         let (resource_signer, resource_signer_cap) =
             account::create_resource_account(admin, seed);
         let resource_account_address = signer::address_of(&resource_signer);
@@ -201,13 +202,11 @@ module KGeNAdmin::rKGeN_staking {
 
     // =====================================   ADMIN METHODS =====================================
     // Updates the admin by nominating a new admin
-    public entry fun nominate_admin(
-        admin_addr: &signer, new_admin: address
-    ) acquires Admin {
+    public entry fun nominate_admin(admin_addr: &signer, new_admin: address) acquires Admin {
         // Ensure that only admin can add a new admin
         assert!(
             signer::address_of(admin_addr) == get_admin(),
-            error::permission_denied(E_NOT_ADMIN)
+            error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
         // Ensure that new_admin should be a valid address
@@ -269,7 +268,7 @@ module KGeNAdmin::rKGeN_staking {
     public entry fun add_platform(admin: &signer, platform: address) acquires Admin {
         assert!(
             signer::address_of(admin) == get_admin(),
-            error::permission_denied(E_NOT_ADMIN)
+            error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
         // Ensure that the platform address is not empty
@@ -301,7 +300,7 @@ module KGeNAdmin::rKGeN_staking {
     public entry fun remove_platform(admin: &signer, platform: address) acquires Admin {
         assert!(
             signer::address_of(admin) == get_admin(),
-            error::permission_denied(E_NOT_ADMIN)
+            error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
         let platform_list = &mut borrow_global_mut<Admin>(@KGeNAdmin).platform_list;
@@ -312,7 +311,13 @@ module KGeNAdmin::rKGeN_staking {
             error::invalid_argument(EINVALID_ARGUMENT)
         );
 
-        let (_exists, index) = smart_vector::index_of(platform_list, &platform);
+        let (exists, index) = smart_vector::index_of(platform_list, &platform);
+
+        // Ensure the platform exists in the list
+        assert!(
+            exists,
+            error::not_found(EPLATFORM_NOT_FOUND)
+        );
 
         // Remove the platform from the list using its index
         smart_vector::remove(platform_list, index);
@@ -339,7 +344,7 @@ module KGeNAdmin::rKGeN_staking {
         // Ensure the caller is the admin
         assert!(
             admin_address == get_admin(),
-            error::permission_denied(E_NOT_ADMIN)
+            error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
         // Ensure all input vectors have the same length
@@ -412,7 +417,7 @@ module KGeNAdmin::rKGeN_staking {
     ) acquires Admin, StakingAPYRange {
         assert!(
             signer::address_of(admin) == get_admin(),
-            error::permission_denied(E_NOT_ADMIN)
+            error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
         let apy_table = &mut borrow_global_mut<StakingAPYRange>(@KGeNAdmin).ranges;
@@ -533,7 +538,7 @@ module KGeNAdmin::rKGeN_staking {
 
         //  ensure the current time is within the staking duration
         assert!(
-            current_time <= (stake.duration * 24 * 60 * 60),
+            current_time <= stake.start_time + (stake.duration * 24 * 60 * 60),
             error::invalid_argument(EHARVEST_DURATION_OVER)
         );
 
@@ -618,10 +623,6 @@ module KGeNAdmin::rKGeN_staking {
             account::create_signer_with_capability(&res_config.signer_cap);
         rkgen_transfer(&resource_signer, user_address, total_payout);
 
-        // Update the last harvest time to the current time
-        update_total_claimed(stake, current_reward);
-        update_last_harvest_time(stake, current_time);
-
         event::emit(
             ClaimEvent {
                 unstake_amount: total_payout,
@@ -656,6 +657,7 @@ module KGeNAdmin::rKGeN_staking {
         smart_table::for_each_ref<u64, APYRange>(
             &read_apy_table.ranges,
             |_key, value| {
+
                 let APYRange { min_amount, max_amount, apy: _, duration: _ } = *value;
 
                 if (input_amount >= min_amount && input_amount <= max_amount) {
@@ -758,8 +760,7 @@ module KGeNAdmin::rKGeN_staking {
     }
 
     //Calculate the available rewards for a user based on the stake details and the current time.
-    #[view]
-    public fun get_available_rewards(
+    fun get_available_rewards(
         start_time: u64,
         apy: u8,
         amount: u64,
@@ -845,16 +846,22 @@ module KGeNAdmin::rKGeN_staking {
     }
 
     // Function to check if any APYRange satisfies the condition
-    fun duration_exists(input_duration: u64): bool acquires StakingAPYRange {
-        let apy_table = &borrow_global<StakingAPYRange>(@KGeNAdmin).ranges;
 
+    fun duration_exists(input_duration: u64): bool acquires StakingAPYRange {
+
+        let apy_table = &borrow_global<StakingAPYRange>(@KGeNAdmin).ranges;
         smart_table::any<u64, APYRange>(
             apy_table,
             |_key, value| {
+
                 let APYRange { min_amount: _, max_amount: _, apy: _, duration } = *value;
+
                 duration == input_duration
+
             }
+
         )
+
     }
 
     // rkgen transfer function
@@ -974,6 +981,12 @@ module KGeNAdmin::rKGeN_staking {
         let stake = get_stake_by_stake_id(user_address, stake_id);
 
         let current_time = timestamp::now_seconds();
+
+        // Ensure staking duration has not  completed
+        assert!(
+            current_time <= stake.start_time + (stake.duration * 24 * 60 * 60),
+            error::invalid_argument(ESTAKE_DURATION_COMPLETED)
+        );
 
         let total_rewards_earned =
             get_available_rewards(

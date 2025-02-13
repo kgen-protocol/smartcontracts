@@ -27,6 +27,8 @@ module KGeNAdmin::airdrop {
     const EALREADY_EXIST: u64 = 4;
     /// No address is nominated
     const ENO_NOMINATED: u64 = 5;
+    /// ChainID
+    const CHAIN_ID: u64 = 1;  //For mainnet
 
     /// Seed for creating a resource account
     const LAUNCHPAD_SEED: vector<u8> = b"rKGeN Launchpad";
@@ -43,7 +45,7 @@ module KGeNAdmin::airdrop {
 
     /// Manages user-specific counters (nonces) to prevent duplication
     struct ManagedNonce has key {
-        nonce: vector<simple_map::SimpleMap<address, u8>> // A mapping of contract addresses to nonces
+        nonce: simple_map::SimpleMap<address, u64> // A mapping of contract addresses to nonces
     }
 
     /// Holds the message details for creating and verifying signatures
@@ -51,7 +53,8 @@ module KGeNAdmin::airdrop {
         user: address, // Address of the user
         metadata: address, // Metadata address (e.g., token address)
         amount: u64, // Amount for the reward
-        nonce: u8 // User-specific nonce
+        nonce: u64, // User-specific nonce
+        chain_id: u64
     }
 
     // Event structure to log signature verification results
@@ -89,6 +92,7 @@ module KGeNAdmin::airdrop {
     }
 
     #[view]
+    // Return the resource account address.
     public fun get_resource_account(): address acquires AdminStore {
         borrow_global<AdminStore>(@KGeNAdmin).resource_account
     }
@@ -106,26 +110,19 @@ module KGeNAdmin::airdrop {
     }
 
     #[view]
-    // Return the admin address.
+    // Return the signer address.
     public fun get_signer_key(): vector<u8> acquires AdminStore {
         let pubkey = borrow_global<AdminStore>(@KGeNAdmin).reward_signer_key;
         pubkey
     }
 
     #[view]
-    public fun get_nonce(user: address, metadata_address: address): u8 acquires ManagedNonce {
+    public fun get_nonce(user: address, metadata_address: address): u64 acquires ManagedNonce {
         let n = 0;
         if (exists<ManagedNonce>(user)) {
-            let managed_nonce = borrow_global<ManagedNonce>(user).nonce;
-            let len = vector::length(&managed_nonce);
-            let i = 0;
-            while (i < len) {
-                let s = vector::borrow(&managed_nonce, i);
-                if (simple_map::contains_key(s, &metadata_address)) {
-                    n = *simple_map::borrow(s, &metadata_address);
-                    break
-                };
-                i = i + 1;
+            let s = borrow_global<ManagedNonce>(user).nonce;
+            if (simple_map::contains_key(&s, &metadata_address)) {
+                n = *simple_map::borrow(&s, &metadata_address);
             };
         };
         n
@@ -234,7 +231,8 @@ module KGeNAdmin::airdrop {
             user: signer::address_of(claimer),
             metadata: object,
             amount,
-            nonce
+            nonce,
+            chain_id: CHAIN_ID
         };
         let messag_bytes = bcs::to_bytes<SignedMessage>(&message);
         let message_hash = hash::sha2_256(messag_bytes);
@@ -280,26 +278,29 @@ module KGeNAdmin::airdrop {
     }
 
     // initialize the nonce for the user if it doesnot has
-    inline fun ensure_nonce(user: &signer, metadata_address: &address): u8 acquires ManagedNonce {
+    inline fun ensure_nonce(user: &signer, metadata_address: &address): u64 acquires ManagedNonce {
         let n = 0;
+
+        // Check if the ManagedNonce object exists for the user
         if (!exists<ManagedNonce>(signer::address_of(user))) {
-            let v = vector::empty<simple_map::SimpleMap<address, u8>>();
-            move_to(user, ManagedNonce { nonce: v });
+            // Create a new simple map to store the nonce for each metadata_address
+            let managed_nonce_map = simple_map::new<address, u64>();
+            move_to(user, ManagedNonce { nonce: managed_nonce_map });
         };
+
+        // Borrow the ManagedNonce object for modifying
         let managed_nonce = borrow_global_mut<ManagedNonce>(signer::address_of(user));
-        vector::for_each(
-            managed_nonce.nonce,
-            |s| {
-                if (simple_map::contains_key(&s, metadata_address)) {
-                    n = *simple_map::borrow(&s, metadata_address);
-                }
-            }
-        );
-        if (n == 0) {
-            let s = simple_map::new<address, u8>();
-            simple_map::add(&mut s, *metadata_address, 0);
-            vector::push_back(&mut managed_nonce.nonce, s);
+
+        // Check if the metadata_address is already in the simple map
+        if (simple_map::contains_key(&managed_nonce.nonce, metadata_address)) {
+            n = *simple_map::borrow(&managed_nonce.nonce, metadata_address);
         };
+
+        // If the nonce does not exist, initialize it to 0
+        if (n == 0) {
+            simple_map::add(&mut managed_nonce.nonce, *metadata_address, 0);
+        };
+
         n
     }
 
@@ -312,18 +313,19 @@ module KGeNAdmin::airdrop {
 
     // Private function to update the nonce of the passed address
     inline fun update_nonce(user: &address, metadata_address: &address) acquires ManagedNonce {
+        // Borrow the ManagedNonce object for the user
         let managed_nonce = borrow_global_mut<ManagedNonce>(*user);
-        let len = vector::length(&managed_nonce.nonce);
-        let i = 0;
-        while (i < len) {
-            let map_ref = vector::borrow_mut(&mut managed_nonce.nonce, i);
-            if (simple_map::contains_key(map_ref, metadata_address)) {
-                let count_ref = simple_map::borrow_mut(map_ref, metadata_address);
-                *count_ref = *count_ref + 1;
-                break
-            };
-            i = i + 1;
-        };
+
+        // Check if the metadata_address is already in the simple map
+        if (simple_map::contains_key(&managed_nonce.nonce, metadata_address)) {
+            // If it exists, increment the current nonce value by 1
+            let count_ref =
+                simple_map::borrow_mut(&mut managed_nonce.nonce, metadata_address);
+            *count_ref = *count_ref + 1;
+        } else {
+            // If not, initialize the nonce for this address to 1
+            simple_map::add(&mut managed_nonce.nonce, *metadata_address, 1);
+        }
     }
 
     // To get signer sign e.g. module is a signer now for the bucket core
