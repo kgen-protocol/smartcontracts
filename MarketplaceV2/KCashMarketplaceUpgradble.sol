@@ -363,13 +363,13 @@ function reintializer()  public reinitializer(2) {
         require(from == address(0) || to == address(0), "token is soulbound");
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
-
 /**
      * @dev Checks if an address is a trusted forwarder.
+     * Overrides ERC2771Context's function.
      * @param forwarder The address to check.
      * @return A boolean indicating whether the address is a trusted forwarder.
      */
-    function isTrustedForwarder(address forwarder) public view returns (bool) {
+    function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return _trustedForwarders[forwarder];
     }
 

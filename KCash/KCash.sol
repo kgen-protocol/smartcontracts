@@ -770,13 +770,13 @@ contract KCash is
 
 /**
      * @dev Checks if an address is a trusted forwarder.
+     * Overrides ERC2771Context's function.
      * @param forwarder The address to check.
      * @return A boolean indicating whether the address is a trusted forwarder.
      */
-    function isTrustedForwarder(address forwarder) public view returns (bool) {
+    function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return _trustedForwarders[forwarder];
     }
-
     /**
      * @dev Adds an address to the list of trusted forwarders.
      * Only the contract owner can call this function.
