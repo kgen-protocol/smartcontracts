@@ -13,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./KCashSigner.sol";
-
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 /**
  * @title KCash
  * @dev This contract represents the KCash token, which is an ERC20 token with additional functionalities.
@@ -23,7 +23,7 @@ contract KCash is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     AccessControlUpgradeable,
-    KCashSigner
+    KCashSigner,ERC2771Context
 {
     /**
      * @dev Represents a bucket that tracks the amount of reward1, reward2, and reward3 in the KCash contract.
@@ -59,8 +59,8 @@ contract KCash is
      * The keys of the mapping are bytes and the values are booleans.
      */
     mapping(bytes => bool) usedSignatures;
-
-    uint256[49] private __gap;
+    mapping(address => bool) private _trustedForwarders;
+    uint256[48] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -85,7 +85,9 @@ contract KCash is
         _grantRole(ADMIN_TRANSFER_ROLE, _owner);
         designatedSigner = _designatedSigner;
     }
-
+    function reintializer()  public reinitializer(2) {
+        // add code for reintializer
+    }
     /**
      * @dev Returns the decimals of the token.
      */
@@ -248,7 +250,7 @@ contract KCash is
         AdminTransferSignature calldata signature
     ) public {
         isValidAdminTransferSignature(signature, designatedSigner);
-        require(signature.from == msg.sender, "KC: sender mismatch");
+        require(signature.from == _msgSender() , "KC: sender mismatch");
         require(
             !usedSignatures[signature.signature],
             "KC: signature already used"
@@ -316,7 +318,7 @@ contract KCash is
                     additionToRecipient.reward3,
             "KC: amount mismatch"
         );
-        Bucket storage bucketSender = buckets[msg.sender];
+        Bucket storage bucketSender = buckets[_msgSender() ];
         Bucket storage bucketRecipient = buckets[to];
         bucketSender.reward1 -= deductionFromSender.reward1;
         bucketSender.reward2 -= deductionFromSender.reward2;
@@ -324,7 +326,7 @@ contract KCash is
         bucketRecipient.reward1 += additionToRecipient.reward1;
         bucketRecipient.reward2 += additionToRecipient.reward2;
         bucketRecipient.reward3 += additionToRecipient.reward3;
-        _transfer(msg.sender, to, amount);
+        _transfer(_msgSender() , to, amount);
     }
 
     /**
@@ -369,7 +371,7 @@ contract KCash is
      */
     function transferToReward3(address to, Bucket calldata _bucket) public {
         uint256 amount = _bucket.reward1 + _bucket.reward2 + _bucket.reward3;
-        Bucket storage bucketSender = buckets[msg.sender];
+        Bucket storage bucketSender = buckets[_msgSender() ];
         Bucket storage bucketRecipient = buckets[to];
         if (amount == _bucket.reward1) {
             bucketSender.reward1 -= _bucket.reward1;
@@ -385,7 +387,7 @@ contract KCash is
             }
         }
         bucketRecipient.reward3 += amount;
-        _transfer(msg.sender, to, amount);
+        _transfer(_msgSender() , to, amount);
     }
 
     /**
@@ -420,13 +422,13 @@ contract KCash is
      * @param amount The amount of reward3 tokens to transfer.
      */
     function transferReward3ToReward3(address to, uint256 amount) public {
-        Bucket storage bucketSender = buckets[msg.sender];
+        Bucket storage bucketSender = buckets[_msgSender() ];
         Bucket storage bucketRecipient = buckets[to];
 
         bucketSender.reward3 -= amount;
         bucketRecipient.reward3 += amount;
 
-        _transfer(msg.sender, to, amount);
+        _transfer(_msgSender() , to, amount);
     }
 
     /**
@@ -466,7 +468,7 @@ contract KCash is
             !usedSignatures[signature.signature],
             "KC: signature already used"
         );
-        require(signature.from == msg.sender, "KC: sender mismatch");
+        require(signature.from == _msgSender() , "KC: sender mismatch");
         Bucket storage bucketSender = buckets[signature.from];
         Bucket storage bucketRecipient = buckets[signature.to];
         bucketSender.reward3 -= signature.amount;
@@ -506,7 +508,7 @@ contract KCash is
             !usedSignatures[signature.signature],
             "KC: signature already used"
         );
-        require(signature.from == msg.sender, "KC: sender mismatch");
+        require(signature.from == _msgSender() , "KC: sender mismatch");
         Bucket storage bucketSender = buckets[signature.from];
         Bucket storage bucketRecipient = buckets[signature.to];
         bucketSender.reward3 -= signature.amount;
@@ -548,7 +550,7 @@ contract KCash is
         address to,
         uint256 amount
     ) public override returns (bool) {
-        _defaultBucketTransfer(msg.sender, to, amount);
+        _defaultBucketTransfer(_msgSender() , to, amount);
         return super.transfer(to, amount);
     }
 
@@ -629,11 +631,11 @@ contract KCash is
         address to,
         uint256 amount
     ) internal {
-        Bucket storage bucketSender = buckets[msg.sender];
+        Bucket storage bucketSender = buckets[_msgSender() ];
         Bucket storage bucketRecipient = buckets[to];
         bucketSender.reward3 -= amount;
         bucketRecipient.reward1 += amount;
-        _transfer(msg.sender, to, amount);
+        _transfer(_msgSender() , to, amount);
     }
 
     /**
@@ -684,11 +686,11 @@ contract KCash is
         address to,
         uint256 amount
     ) internal {
-        Bucket storage bucketSender = buckets[msg.sender];
+        Bucket storage bucketSender = buckets[_msgSender()];
         Bucket storage bucketRecipient = buckets[to];
         bucketSender.reward3 -= amount;
         bucketRecipient.reward2 += amount;
-        _transfer(msg.sender, to, amount);
+        _transfer(_msgSender() , to, amount);
     }
 
     /**
@@ -764,6 +766,35 @@ contract KCash is
 
     function burnFrom(address account, uint256 amount) public override {
         revert("KC: burn disabled");
+    }
+
+/**
+     * @dev Checks if an address is a trusted forwarder.
+     * @param forwarder The address to check.
+     * @return A boolean indicating whether the address is a trusted forwarder.
+     */
+    function isTrustedForwarder(address forwarder) public view returns (bool) {
+        return _trustedForwarders[forwarder];
+    }
+
+    /**
+     * @dev Adds an address to the list of trusted forwarders.
+     * Only the contract owner can call this function.
+     * @param trustedForwarders The address to add as a trusted forwarder.
+     */
+    function addTrustedForwarders(address trustedForwarders) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _trustedForwarders[trustedForwarders] = true;
+        emit ForwarderAdded(trustedForwarders);
+    }
+
+    /**
+     * @dev Removes an address from the list of trusted forwarders.
+     * Only the contract owner can call this function.
+     * @param trustedForwarders The address to remove as a trusted forwarder.
+     */
+    function removeTrustedForwarders(address trustedForwarders) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _trustedForwarders[trustedForwarders] = false;
+        emit ForwarderRemoved(trustedForwarders);
     }
     
 }
