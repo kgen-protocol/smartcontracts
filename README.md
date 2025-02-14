@@ -31,3 +31,5 @@ This repository contains all the smart contracts used within KGeN/IndiGG. Below 
 
 ### 10. **🎖️ UserLoyalty**
 - **Description**: User loyalty contract for tracking on-chain events.
+### 10. **🎖️ B2B Revenue onchain contract**
+- **Description**: capturing the dollar volume on-chain.

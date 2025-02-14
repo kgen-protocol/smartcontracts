@@ -1,0 +1,15 @@
+{
+  "name": "aptos-move-project",
+  "version": "1.0.0",
+  "description": "A Move contract project on Aptos",
+  "scripts": {
+    "init": "aptos init",
+    "build": "aptos move build",
+    "test": "aptos move test",
+    "deploy": "aptos move publish --named-addresses",
+    "run": "aptos move run"
+  },
+  "dependencies": {
+    "aptos": "^1.10.0"
+  }
+}
