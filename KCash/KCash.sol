@@ -13,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./KCashSigner.sol";
-import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import "../ERC2771Override/ERC2771Overrides.sol";
 /**
  * @title KCash
  * @dev This contract represents the KCash token, which is an ERC20 token with additional functionalities.
@@ -23,7 +23,7 @@ contract KCash is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     AccessControlUpgradeable,
-    KCashSigner,ERC2771Context
+    KCashSigner,ERC2771Overrides
 {
     /**
      * @dev Represents a bucket that tracks the amount of reward1, reward2, and reward3 in the KCash contract.
@@ -59,8 +59,7 @@ contract KCash is
      * The keys of the mapping are bytes and the values are booleans.
      */
     mapping(bytes => bool) usedSignatures;
-    mapping(address => bool) private _trustedForwarders;
-    uint256[48] private __gap;
+     uint256[48] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -768,33 +767,6 @@ contract KCash is
         revert("KC: burn disabled");
     }
 
-/**
-     * @dev Checks if an address is a trusted forwarder.
-     * Overrides ERC2771Context's function.
-     * @param forwarder The address to check.
-     * @return A boolean indicating whether the address is a trusted forwarder.
-     */
-    function isTrustedForwarder(address forwarder) public view override returns (bool) {
-        return _trustedForwarders[forwarder];
-    }
-    /**
-     * @dev Adds an address to the list of trusted forwarders.
-     * Only the contract owner can call this function.
-     * @param trustedForwarders The address to add as a trusted forwarder.
-     */
-    function addTrustedForwarders(address trustedForwarders) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _trustedForwarders[trustedForwarders] = true;
-        emit ForwarderAdded(trustedForwarders);
-    }
 
-    /**
-     * @dev Removes an address from the list of trusted forwarders.
-     * Only the contract owner can call this function.
-     * @param trustedForwarders The address to remove as a trusted forwarder.
-     */
-    function removeTrustedForwarders(address trustedForwarders) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _trustedForwarders[trustedForwarders] = false;
-        emit ForwarderRemoved(trustedForwarders);
-    }
     
 }
