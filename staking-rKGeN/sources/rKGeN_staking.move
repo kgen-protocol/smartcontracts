@@ -768,14 +768,18 @@ module KGeNAdmin::rKGeN_staking {
     ): u64 {
         let passed_time = current_time - start_time;
         let seconds_in_year = 365 * 24 * 60 * 60;
-        //
-        let stake_apy__ = apy as u64;
-        let passed_time__ = passed_time as u64;
-        //
-        let total_rewards_earned = amount * stake_apy__ * passed_time__
-            / (seconds_in_year * 100);
 
-        total_rewards_earned
+        let amount_u256 = amount as u256;
+        let apy_u256 = apy as u256;
+        let passed_time_u256 = passed_time as u256;
+        let seconds_in_year_u256 = seconds_in_year as u256;
+    
+         let total_rewards_earned = amount_u256 * apy_u256 * passed_time_u256
+            / (seconds_in_year_u256 * 100);
+
+         (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
+
+
     }
 
     // Get the total rewards that have been claimed by the user for a specific stake.
