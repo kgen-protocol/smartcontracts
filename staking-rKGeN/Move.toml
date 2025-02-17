@@ -4,8 +4,8 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-KGeNAdmin='0b95d191f09d87e2c905f68dc4d5ee6c36ed39d6a3bc5ace2a8366a335aa7d18'
-rKGenAdmin='0b95d191f09d87e2c905f68dc4d5ee6c36ed39d6a3bc5ace2a8366a335aa7d18'
+KGeNAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
+rKGenAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"
