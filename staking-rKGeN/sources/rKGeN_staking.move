@@ -357,7 +357,7 @@ module KGeNAdmin::rKGeN_staking {
         );
 
         // Prepare the smart table
-        if (exists<StakingAPYRange>(admin_address)) {
+        if (exists<StakingAPYRange>(@KGeNAdmin)) {
             let apy_table = &mut borrow_global_mut<StakingAPYRange>(@KGeNAdmin).ranges;
             smart_table::clear(apy_table); // Clear existing entries
 
@@ -399,7 +399,7 @@ module KGeNAdmin::rKGeN_staking {
         };
 
         // Add all ranges to the smart table
-        let apy_table = &mut borrow_global_mut<StakingAPYRange>(admin_address).ranges;
+        let apy_table = &mut borrow_global_mut<StakingAPYRange>(@KGeNAdmin).ranges;
         smart_table::add_all(apy_table, keys, values);
 
         event::emit(
@@ -532,7 +532,7 @@ module KGeNAdmin::rKGeN_staking {
         let current_time = timestamp::now_seconds();
 
         assert!(
-            current_time - stake.last_harvest_time >= 24 * 60 * 60,
+            current_time - stake.last_harvest_time >= 5 * 60,
             error::invalid_argument(EHARVEST_TOO_SOON)
         );
 
