@@ -1,11 +1,9 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 import "./MarketplaceSigner.sol";
-
+import"../ERC2771Override/ERC2771Overrides.sol";
 /**
  * @title KCashMarketplaceV2
  * @dev This contract implements the Kcash Marketplace by inheriting ERC1155.
@@ -13,7 +11,7 @@ import "./MarketplaceSigner.sol";
 contract KCashMarketplaceUpgradable is
     ERC1155Upgradeable,
     AccessControlUpgradeable,
-    MarketplaceSigner
+    MarketplaceSigner,ERC2771Override
 {
     using StringsUpgradeable for *;
 
@@ -50,7 +48,6 @@ contract KCashMarketplaceUpgradable is
      * The mapping is used to check if a signature has already been used.
      */
     mapping(bytes => bool) usedSignatures;
-
     // Events
     // Event for adding an item
     event ItemAdded(
@@ -73,7 +70,7 @@ contract KCashMarketplaceUpgradable is
         address buyer
     );
 
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -92,7 +89,9 @@ contract KCashMarketplaceUpgradable is
         _grantRole(ADMIN_MINT_ROLE, _owner);
         designatedSigner = _designatedSigner;
     }
-
+function reintializer()  public reinitializer(2) {
+    // add code for reintializer
+}
     /**
      * @dev Returns the Uniform Resource Identifier (URI) for a given token ID.
      * @param _id uint256 ID of the token to query.
@@ -206,7 +205,7 @@ contract KCashMarketplaceUpgradable is
     ) external isValidSignature(signature, designatedSigner) {
         require(!usedSignatures[signature.signature], "Signature already used");
         require(
-            signature.buyerAddress == msg.sender,
+            signature.buyerAddress == _msgSender(),
             "Caller is not the buyer"
         );
         usedSignatures[signature.signature] = true;
@@ -279,7 +278,7 @@ contract KCashMarketplaceUpgradable is
     ) external isValidSignatureBatch(signature, designatedSigner) {
         require(!usedSignatures[signature.signature], "Signature already used");
         require(
-            signature.buyerAddress == msg.sender,
+            signature.buyerAddress == _msgSender() ,
             "Caller is not the buyer"
         );
         usedSignatures[signature.signature] = true;
@@ -294,7 +293,7 @@ contract KCashMarketplaceUpgradable is
      * @dev Allows the default admin role to withdraw the native currency from the contract.
      */
     function withdrawNative() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        payable(msg.sender).transfer(address(this).balance);
+        payable(_msgSender() ).transfer(address(this).balance);
     }
 
     /**
@@ -335,7 +334,7 @@ contract KCashMarketplaceUpgradable is
         returns (bool)
     {
         return
-            interfaceId == type(IERC1155Upgradeable).interfaceId ||
+            interfaceId == type(IERC1155Upgradeable).interfaceId || 
             interfaceId == type(IERC1155MetadataURIUpgradeable).interfaceId ||
             super.supportsInterface(interfaceId);
     }
@@ -362,4 +361,7 @@ contract KCashMarketplaceUpgradable is
         require(from == address(0) || to == address(0), "token is soulbound");
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
-}
+
+    }
+
+
