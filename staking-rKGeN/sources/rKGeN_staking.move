@@ -37,6 +37,9 @@ module KGeNAdmin::rKGeN_staking {
     const EPLATFORM_NOT_FOUND: u64 = 20;
     const ESTAKE_DURATION_COMPLETED: u64 = 5;
 
+    const HARVEST_TIME: u64 = 24;
+    const SECONDS_IN_DAY: u64 = 86400;
+
     // =====================================    STORAGE   =====================================
 
     // Represents the admin's information and configuration.
@@ -532,13 +535,13 @@ module KGeNAdmin::rKGeN_staking {
         let current_time = timestamp::now_seconds();
 
         assert!(
-            current_time - stake.last_harvest_time >= 5 * 60,
+            current_time - stake.last_harvest_time >= HARVEST_TIME * 60,
             error::invalid_argument(EHARVEST_TOO_SOON)
         );
 
         //  ensure the current time is within the staking duration
         assert!(
-            current_time <= stake.start_time + (stake.duration * 24 * 60 * 60),
+            current_time <= stake.start_time + (stake.duration * SECONDS_IN_DAY),
             error::invalid_argument(EHARVEST_DURATION_OVER)
         );
 
@@ -596,7 +599,7 @@ module KGeNAdmin::rKGeN_staking {
         let current_time = timestamp::now_seconds();
 
         assert!(
-            current_time >= stake.start_time + (stake.duration * 24 * 60 * 60),
+            current_time >= stake.start_time + (stake.duration * SECONDS_IN_DAY),
             error::invalid_argument(ECLAIM_TOO_SOON)
         );
 
@@ -606,7 +609,7 @@ module KGeNAdmin::rKGeN_staking {
                 stake.start_time,
                 stake.apy,
                 stake.amount,
-                current_time
+                stake.start_time + (stake.duration * SECONDS_IN_DAY)
             );
 
         let total_rewards_claimed = get_total_claimed_rewards(stake);
@@ -767,7 +770,7 @@ module KGeNAdmin::rKGeN_staking {
         current_time: u64
     ): u64 {
         let passed_time = current_time - start_time;
-        let seconds_in_year = 365 * 24 * 60 * 60;
+        let seconds_in_year = 365 * SECONDS_IN_DAY;
 
         let amount_u256 = amount as u256;
         let apy_u256 = apy as u256;
@@ -967,7 +970,6 @@ module KGeNAdmin::rKGeN_staking {
     #[view]
     public fun get_resource_acc_address(): address acquires Admin {
         borrow_global<Admin>(@KGeNAdmin).res_address
-
     }
 
     // Get the list of authorized platforms.
@@ -986,11 +988,9 @@ module KGeNAdmin::rKGeN_staking {
 
         let current_time = timestamp::now_seconds();
 
-        // Ensure staking duration has not  completed
-        assert!(
-            current_time <= stake.start_time + (stake.duration * 24 * 60 * 60),
-            error::invalid_argument(ESTAKE_DURATION_COMPLETED)
-        );
+        if (current_time > stake.start_time + (stake.duration * SECONDS_IN_DAY)) {
+            current_time = stake.start_time + (stake.duration * SECONDS_IN_DAY)
+        };
 
         let total_rewards_earned =
             get_available_rewards(
@@ -1032,7 +1032,7 @@ module KGeNAdmin::rKGeN_staking {
         user_address: address, stake_id: u64
     ): u64 acquires UserStakes {
         let stake = get_stake_by_stake_id(user_address, stake_id);
-        let end_time = stake.start_time + (stake.duration * 24 * 60 * 60);
+        let end_time = stake.start_time + (stake.duration * SECONDS_IN_DAY);
         let total_rewards_available =
             get_available_rewards(
                 stake.start_time,
@@ -1052,6 +1052,5 @@ module KGeNAdmin::rKGeN_staking {
 
         // Return the total claimable amount
         total_claimable
-
     }
 }
