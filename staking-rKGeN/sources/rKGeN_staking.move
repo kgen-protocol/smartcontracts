@@ -205,7 +205,9 @@ module KGeNAdmin::rKGeN_staking {
 
     // =====================================   ADMIN METHODS =====================================
     // Updates the admin by nominating a new admin
-    public entry fun nominate_admin(admin_addr: &signer, new_admin: address) acquires Admin {
+    public entry fun nominate_admin(
+        admin_addr: &signer, new_admin: address
+    ) acquires Admin {
         // Ensure that only admin can add a new admin
         assert!(
             signer::address_of(admin_addr) == get_admin(),
@@ -382,7 +384,7 @@ module KGeNAdmin::rKGeN_staking {
             let duration_value = *vector::borrow(&duration, i);
 
             assert!(
-                min < max,
+                min> 0 && min < max,
                 error::invalid_argument(EMIN_AMOUNT_GREATER_THAN_MAX)
             );
             // Construct key and value
@@ -475,7 +477,7 @@ module KGeNAdmin::rKGeN_staking {
         validate_add_stake_input_duration(input_duration);
 
         //  Fetch APY Range for the given amount and duration
-        let apy_range_row = get_apy_range(input_amount);
+        let apy_range_row = get_apy_range(input_amount, input_duration);
 
         //  Initialize or update user stakes
         let user_stakes_table = borrow_global_mut<UserStakes>(@KGeNAdmin);
@@ -651,7 +653,8 @@ module KGeNAdmin::rKGeN_staking {
     }
 
     // Fetches the appropriate APY range based on the input amount.
-    fun get_apy_range(input_amount: u64): APYRange acquires StakingAPYRange {
+    #[view]
+    public fun get_apy_range(input_amount: u64, input_duration: u64): APYRange acquires StakingAPYRange {
 
         let read_apy_table = borrow_global<StakingAPYRange>(@KGeNAdmin);
         let apy_range_row = option::none<APYRange>();
@@ -661,11 +664,13 @@ module KGeNAdmin::rKGeN_staking {
             &read_apy_table.ranges,
             |_key, value| {
 
-                let APYRange { min_amount, max_amount, apy: _, duration: _ } = *value;
+                let APYRange { min_amount, max_amount, apy: _, duration } = *value;
 
                 if (input_amount >= min_amount && input_amount <= max_amount) {
-                    apy_range_row = option::some<APYRange>(*value);
-                    found = true // Mark as found
+                    if (input_duration == duration) {
+                        apy_range_row = option::some<APYRange>(*value);
+                        found = true // Mark as found
+                    }
                 };
 
             }
@@ -776,12 +781,11 @@ module KGeNAdmin::rKGeN_staking {
         let apy_u256 = apy as u256;
         let passed_time_u256 = passed_time as u256;
         let seconds_in_year_u256 = seconds_in_year as u256;
-    
-         let total_rewards_earned = amount_u256 * apy_u256 * passed_time_u256
-            / (seconds_in_year_u256 * 100);
 
-         (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
+        let total_rewards_earned =
+            amount_u256 * apy_u256 * passed_time_u256 / (seconds_in_year_u256 * 100);
 
+        (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
 
     }
 
