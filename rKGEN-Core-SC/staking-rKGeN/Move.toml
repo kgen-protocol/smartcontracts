@@ -1,0 +1,25 @@
+[package]
+name = "rKGeN_staking"
+version = "1.0.0"
+authors = []
+
+[addresses]
+KGeNAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
+rKGenAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "72d90dc"
+subdir = "aptos-framework"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = '81a2f42'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dependencies.rKGEN]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "a971d6fc010f0fe650fc4f8d3008258488d7fd03"
+subdir = 'rKGEN-Core-SC/rKGEN'
+
+[dev-dependencies]

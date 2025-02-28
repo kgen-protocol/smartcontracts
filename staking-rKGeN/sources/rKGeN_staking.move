@@ -337,6 +337,13 @@ module KGeNAdmin::rKGeN_staking {
 
     // Event emitted when the entire APY table is updated.
     #[event]
+    struct TransferFromResource has drop, store {
+        receiver: address,
+        amount: u64
+    }
+
+    // Event emitted when the entire APY table is updated.
+    #[event]
     struct APYTableUpdated has drop, store {
         admin_address: address,
         timestamp: u64
@@ -365,6 +372,27 @@ module KGeNAdmin::rKGeN_staking {
             admin,
             StakingAPYRange {
                 ranges: smart_table::new<u64, APYRange>()
+            }
+        );
+    }
+
+    // Remove rKGeN from contract
+    public entry fun transfer_from_resource(admin: &signer, receiver: address, amount: u64) acquires Admin{
+        // Ensure the caller is the admin
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ENOT_ADMIN)
+        );
+
+        // Transfer the current reward to the user
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
+        let resource_signer =
+            account::create_signer_with_capability(&res_config.signer_cap);
+        rKGEN::transfer(&resource_signer, receiver, amount);
+        event::emit(
+            TransferFromResource {
+                receiver,
+                amount
             }
         );
     }
