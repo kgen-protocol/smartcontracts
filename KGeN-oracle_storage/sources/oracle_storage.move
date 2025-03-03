@@ -46,6 +46,24 @@ module KGeN::kgen_oracle_storage {
        smart_table::add(&mut records.players, player, s);
     }
 
+    // Add records for the user
+    public entry fun set_player_props_by_aggregator(players: vector<address>,
+        keys_vec: vector<vector<String>>,
+        values_vec: vector<vector<vector<u8>>>)
+     acquires PlayersRecords {
+
+        let len = vector::length(&players);
+        for (i in 0..len){
+            // Add keys, values into the simple map
+            let s = simple_map::new<String, vector<u8>>();
+            simple_map::add_all<String, vector<u8>>(&mut s, *vector::borrow(&keys_vec, i), *vector::borrow(&values_vec, i));
+
+            let records = borrow_global_mut<PlayersRecords>(@KGeN);
+            smart_table::add(&mut records.players, *vector::borrow(&players, i), s);
+        }
+
+    }
+
     #[view]
     public fun get_player_props(player: address): (vector<String>, vector<vector<u8>>) acquires PlayersRecords{
         let records = borrow_global_mut<PlayersRecords>(@KGeN);

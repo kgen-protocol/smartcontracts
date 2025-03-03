@@ -7,16 +7,16 @@ authors = []
 rKGenAdmin='_'
 
 [dev-addresses]
-rKGenAdmin='0x4814ed6356aec2078bcfa3514e55ecee27825c204cc7be0319d3b355b9a8e703'
+rKGenAdmin='0x49b331de6268ac13ec7808e6f0362a63796a06408e1e8a4681a90245ec55c455'
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"
-rev = "mainnet"
+rev = "72d90dc"
 subdir = "aptos-framework"
 
 [dependencies.AptosTokenObjects]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'mainnet'
+rev = '81a2f42'
 subdir = 'aptos-move/framework/aptos-token-objects'
 
 [dev-dependencies]
