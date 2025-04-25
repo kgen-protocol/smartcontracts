@@ -97,6 +97,13 @@ module KGeNAdmin::airdrop {
         amount : u64,
         token : address
     }
+    // only used for stage 
+    // #[event]
+    // struct AdminWithdrwal has drop, store {
+    //     admin : address,
+    //     amount : u64,
+    //     token : address
+    // }
     #[view]
     // Return the resource _account address.
     public fun get_resource_account(): address acquires AdminStore {
