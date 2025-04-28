@@ -37,8 +37,8 @@ module KGeNAdmin::rKGeN_staking {
     const EPLATFORM_NOT_FOUND: u64 = 20;
     const ESTAKE_DURATION_COMPLETED: u64 = 5;
 
-    const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
-    const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    const HARVEST_TIME: u64 = 24;
+    const SECONDS_IN_DAY: u64 = 86400;
 
     // =====================================    STORAGE   =====================================
 
