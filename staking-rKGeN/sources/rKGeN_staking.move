@@ -347,7 +347,7 @@ module KGeNAdmin::rKGeN_staking {
         timestamp: u64,
         apy: u64,
         stake_id: u64
-
+    }
     // Event emitted when the entire APY table is updated.
     #[event]
     struct TransferFromResource has drop, store {
@@ -874,4 +874,5 @@ module KGeNAdmin::rKGeN_staking {
 
         (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
     }
+
 }
