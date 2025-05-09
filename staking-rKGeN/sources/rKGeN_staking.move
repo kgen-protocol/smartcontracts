@@ -51,8 +51,8 @@ module KGeNAdmin::rKGeN_staking {
    // const HARVEST_TIME: u64 = 5;  // For testing, in minutes
    // const SECONDS_IN_DAY: u64 = 86400; // In seconds
 
-   const HARVEST_TIME: u64 = 5;  // For testing, in minutes
-   const SECONDS_IN_DAY: u64 = 86400; // In seconds
+   const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
+    const SECONDS_IN_DAY: u64 = 86400; // In seconds
     // Resources
     // Represents the admin's information and configuration.
     struct Admin has key {
