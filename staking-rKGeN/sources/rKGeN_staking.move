@@ -392,11 +392,7 @@ module KGeNAdmin::rKGeN_staking {
     public entry fun init_reward_admin(admin: &signer) acquires Admin  {
         // Create a new resource account for the reward source
         let admin_address = signer::address_of(admin);
-        assert!(
-            admin_address == get_admin(),
-            error::permission_denied(ENOT_ADMIN)
-        );
-        let seed = b"rKGeN_rewards_treasury_acc_seed";
+        let seed = b"rKGeN_rewards_treasury_seed";
         let (reward_source_signer, resource_signer_cap) = account::create_resource_account(admin, seed);
         let reward_source_account_address = signer::address_of(&reward_source_signer);
 
