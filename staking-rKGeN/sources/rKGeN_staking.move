@@ -389,7 +389,7 @@ module KGeNAdmin::rKGeN_staking {
         );
     }
     
-    public entry fun init_reward_admin(admin: &signer) acquires Admin  {
+    public entry fun init_reward_admin(admin: &signer)   {
         // Create a new resource account for the reward source
         let admin_address = signer::address_of(admin);
         let seed = b"rKGeN_rewards_treasury_seed";
