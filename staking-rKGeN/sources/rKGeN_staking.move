@@ -48,9 +48,11 @@ module KGeNAdmin::rKGeN_staking {
     /// Invalid address provided
     const ENOT_VALID_ADDRESS: u64 = 16;
 
-    const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
-    const SECONDS_IN_DAY: u64 = 86400; // In seconds
+   // const HARVEST_TIME: u64 = 5;  // For testing, in minutes
+   // const SECONDS_IN_DAY: u64 = 86400; // In seconds
 
+   const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
+    const SECONDS_IN_DAY: u64 = 86400; // In seconds
     // Resources
     // Represents the admin's information and configuration.
     struct Admin has key {
@@ -62,6 +64,12 @@ module KGeNAdmin::rKGeN_staking {
         nominated_admin: option::Option<address>
     }
 
+    struct RewardsAdmin has key {
+        admin:address,
+        signer_cap:SignerCapability,
+        resource_address:address,     
+        nominated_admin: option::Option<address>
+    }
     // Represents a specific APY range configuration for staking.
     struct APYRange has store, drop, copy {
         min_amount: u64,
@@ -170,6 +178,13 @@ module KGeNAdmin::rKGeN_staking {
     public fun get_resource_acc_address(): address acquires Admin {
         borrow_global<Admin>(@KGeNAdmin).resource_address
     }
+
+    // Get the resource account address associated with the admin
+    #[view]
+    public fun get_rewards_resource_acc_address(): address acquires RewardsAdmin{
+        borrow_global<RewardsAdmin>(@KGeNAdmin).resource_address
+    }
+
 
     // Get the list of authorized platforms.
     #[view]
@@ -333,8 +348,6 @@ module KGeNAdmin::rKGeN_staking {
         apy: u64,
         stake_id: u64
     }
-
-
     // Event emitted when the entire APY table is updated.
     #[event]
     struct TransferFromResource has drop, store {
@@ -374,6 +387,23 @@ module KGeNAdmin::rKGeN_staking {
                 ranges: smart_table::new<u64, APYRange>()
             }
         );
+    }
+    
+    public entry fun init_reward_admin(admin: &signer)   {
+        // Create a new resource account for the reward source
+        let admin_address = signer::address_of(admin);
+        let seed = b"rKGeN_rewards_treasury_seed";
+        let (reward_source_signer, resource_signer_cap) = account::create_resource_account(admin, seed);
+        let reward_source_account_address = signer::address_of(&reward_source_signer);
+
+        // Create the RewardsAdmin resource and store it
+        let rewards_admin = RewardsAdmin {
+            admin:admin_address,
+            resource_address: reward_source_account_address,
+            signer_cap: resource_signer_cap,
+            nominated_admin: option::none(),
+        };
+        move_to(admin, rewards_admin);
     }
 
     // Remove rKGeN from contract
@@ -696,7 +726,7 @@ module KGeNAdmin::rKGeN_staking {
 
     public entry fun harvest(
         user: &signer, platform: &signer, stake_id: u64
-    ) acquires UserStakes, Admin{
+    ) acquires UserStakes, Admin,RewardsAdmin{
         // verify platform
         assert!(
             verify_platform(&signer::address_of(platform)),
@@ -735,7 +765,7 @@ module KGeNAdmin::rKGeN_staking {
         let current_reward = total_rewards_earned - stake.total_claimed;
 
         // Transfer the current reward to the user
-        let res_config = borrow_global<Admin>(@KGeNAdmin);
+        let res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
         let resource_signer =
             account::create_signer_with_capability(&res_config.signer_cap);
         rKGEN::transfer(&resource_signer, user_address, current_reward);
@@ -756,7 +786,7 @@ module KGeNAdmin::rKGeN_staking {
 
     public entry fun claim(
         user: &signer, platform: &signer, stake_id: u64
-    ) acquires UserStakes, Admin {
+    ) acquires UserStakes, Admin ,RewardsAdmin{
         // verify platform
         assert!(
             verify_platform(&signer::address_of(platform)),
@@ -788,17 +818,22 @@ module KGeNAdmin::rKGeN_staking {
                 stake.start_time + (stake.duration * SECONDS_IN_DAY)
             );
         
-        let claimable_amount = total_rewards_earned - stake.total_claimed + stake.amount;
+        let current_reward = total_rewards_earned - stake.total_claimed;
 
         // Transfer the current reward to the user
         let res_config = borrow_global<Admin>(@KGeNAdmin);
         let resource_signer =
             account::create_signer_with_capability(&res_config.signer_cap);
-        rKGEN::transfer(&resource_signer, user_address, claimable_amount);
+        rKGEN::transfer(&resource_signer, user_address, stake.amount);
 
+        // transfer Rewards from Rewards Admin resource account 
+        let rewards_res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
+        let resource_rewards_signer =  
+            account::create_signer_with_capability(&rewards_res_config.signer_cap);
+        rKGEN::transfer(&resource_rewards_signer,user_address,current_reward);
         event::emit(
             ClaimEvent {
-                unstake_amount: claimable_amount,
+              unstake_amount: current_reward + stake.amount,
                 timestamp: current_time,
                 apy: stake.apy,
                 stake_id
@@ -835,4 +870,5 @@ module KGeNAdmin::rKGeN_staking {
 
         (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
     }
+
 }
