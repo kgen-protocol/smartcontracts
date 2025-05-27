@@ -47,12 +47,14 @@ module KGeNAdmin::rKGeN_staking {
     const EAPY_ROWS_MISMATCH: u64 = 15;
     /// Invalid address provided
     const ENOT_VALID_ADDRESS: u64 = 16;
-
-   // const HARVEST_TIME: u64 = 5;  // For testing, in minutes
-   // const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    /// Auto Renewal is too soon 
+    const EAUTO_RENEWAL_TOO_SOON:u64 = 17;
 
    const HARVEST_TIME: u64 = 5;  // For testing, in minutes
    const SECONDS_IN_DAY: u64 = 86400; // In seconds
+
+   // const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
+   //  const SECONDS_IN_DAY: u64 = 86400; // In seconds
     // Resources
     // Represents the admin's information and configuration.
     struct Admin has key {
@@ -96,6 +98,12 @@ module KGeNAdmin::rKGeN_staking {
     struct UserStakes has key {
         stake_id: u64,
         stakes: simple_map::SimpleMap<u64, StakeDetails>
+    }
+
+    //TODO: REMOVE IT WHILE PUSHING THE CODE ON MAINNET USED ONLY FOR TEST NET
+    // store auto-newal info 
+    struct AutoRenewal has key {
+        stakes: simple_map::SimpleMap<u64, bool>
     }
 
     #[view]
@@ -143,7 +151,6 @@ module KGeNAdmin::rKGeN_staking {
             false
         }
     }
-
     // Get all available staking ranges
     #[view]
     public fun get_staking_ranges(): simple_map::SimpleMap<u64, APYRange> acquires StakingAPYRange {
@@ -288,6 +295,8 @@ module KGeNAdmin::rKGeN_staking {
         total_rewards_earned - stake.total_claimed + stake.amount
     }
 
+    // Deprecated event: Use `AddStakeEvent` instead.
+   // This event is kept for backward compatibility but should NOT be emitted in new code. 
     #[event]
     struct AddStakeEvent has drop, store {
         amount: u64,
@@ -295,6 +304,22 @@ module KGeNAdmin::rKGeN_staking {
         stake_id: u64
     }
 
+    // TODO: REMOVE WHEN PUSHING ON MAIN ONLY  USED FOR TESTNET
+   #[event]
+    struct Unstake has drop ,store {
+        unstake_amount:u64,
+        timestamp:u64,
+        lock_duration:u64,
+        stake_id:u64,
+    }
+    //TODO: REMOVE WHEN PUSHING ON MAIN NET ONLY USED FOR TESTNET
+    #[event]
+    struct UnstakeEvent has drop ,store {
+        unstake_amount:u64,
+        start_time:u64,
+        lock_duration:u64,
+        stake_id:u64,
+    }
     // Event emitted when a platform is added by an admin.
     #[event]
     struct PlatformAddedEvent has drop, store {
@@ -361,6 +386,41 @@ module KGeNAdmin::rKGeN_staking {
         admin_address: address,
         timestamp: u64
     }
+    // TODO : ONLY USED FOR TESTNET NOT ON MAINT COMMENT WHEILE PUSHING IT ON MAIN NET
+    #[event]
+    struct AutoRenewalToggledEvent has drop,store {
+        user_address: address,
+        stake_id: u64,
+        is_active_auto_renewal: bool,
+    }
+  // TODO : ONLY USED FOR TESTNET NOT ON MAINT COMMENT WHEILE PUSHING IT ON MAIN NET
+    #[event]
+    struct AutoRenewalEvent has drop ,store {
+        user_address: address,
+        stake_id: u64,
+        amount:u64,
+        start_time:u64
+       
+    }
+   #[event]
+    struct UnstakeCompletedEvent has drop , store{
+        stake_id:u64,
+        amount:u64,
+        sender:address,
+        receiver:address,
+        start_time:u64,
+        end_time:u64
+    }
+    #[event]
+    struct StakeCompletedEvent has drop, store {
+        stake_id: u64,
+        old_stake_id:u64,
+        user_address:address,
+        amount: u64,
+        start_time: u64,
+        end_time:u64,
+    }
+
 
     fun init_module(admin: &signer) {
         let admin_address = signer::address_of(admin);
@@ -679,6 +739,57 @@ module KGeNAdmin::rKGeN_staking {
             }
         );
     }
+ public entry fun auto_renewal(admin:&signer,user_address:address,stake_id:u64) acquires UserStakes,Admin,RewardsAdmin {
+        assert!(
+             signer::address_of(admin) == get_admin(),
+             error::permission_denied(ENOT_ADMIN)
+         );
+        assert!(
+        is_stake_exists(user_address, stake_id),
+        error::not_found(ESTAKE_NOT_EXIST));
+        let user_stakes_table = borrow_global_mut<UserStakes>(user_address);
+        let stake = simple_map::borrow_mut(&mut user_stakes_table.stakes, &stake_id);
+        let current_time = timestamp::now_seconds();
+        // assert!(
+        //     current_time >= stake.start_time + (stake.duration * SECONDS_IN_DAY),
+        //     error::invalid_argument(EAUTO_RENEWAL_TOO_SOON)
+        // );
+        let total_rewards_earned =
+            get_available_rewards(
+                stake.start_time,
+                stake.apy,
+                stake.amount,
+                stake.start_time + (stake.duration * SECONDS_IN_DAY)
+            );
+        
+        let current_reward = total_rewards_earned - stake.total_claimed;
+          // Preserve the original time of day from previous start_time
+        let time_of_day = stake.start_time % SECONDS_IN_DAY;
+         // Get today's midnight timestamp (start of current day)
+        let current_date_midnight = current_time - (current_time % SECONDS_IN_DAY);
+        // New start time = today at original stake's time of day
+        let new_start_time = current_date_midnight + time_of_day;
+        let end_time = new_start_time + (stake.duration * SECONDS_IN_DAY);
+        let new_stake = StakeDetails{
+            amount: stake.amount + current_reward,
+            apy: stake.apy,
+            duration: stake.duration,
+            start_time: new_start_time,
+            last_harvest_time: new_start_time,
+            total_claimed: 0
+        };
+        let old_stake_id = user_stakes_table.stake_id;
+        user_stakes_table.stake_id = user_stakes_table.stake_id + 1;
+        simple_map::add(&mut user_stakes_table.stakes, user_stakes_table.stake_id, new_stake);
+        let stake_resourec_account= get_resource_acc_address();
+        let res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
+        let resource_signer = account::create_signer_with_capability(&res_config.signer_cap);
+        rKGEN::transfer(&resource_signer, stake_resourec_account, current_reward);
+        simple_map::remove(&mut user_stakes_table.stakes, &stake_id);
+        event::emit(
+           StakeCompletedEvent  {stake_id : user_stakes_table.stake_id,old_stake_id,user_address,amount : new_stake.amount,start_time:new_stake.start_time,end_time}
+        )
+ }
 
     // Add stake by users
     public entry fun add_stake(user: &signer, platform: &signer, input_amount: u64, input_duration: u64
@@ -701,6 +812,7 @@ module KGeNAdmin::rKGeN_staking {
             last_harvest_time: current_time,
             total_claimed: 0
         };
+        let  end_time = current_time + (input_duration * SECONDS_IN_DAY);
         let resource_addr = get_resource_acc_address();
         if (!exists<UserStakes>(user_address)){
             let vec_id = vector::empty<u64>();
@@ -714,7 +826,7 @@ module KGeNAdmin::rKGeN_staking {
             });
             rKGEN::transfer(user, resource_addr, input_amount);
             event::emit(
-                AddStakeEvent { amount: input_amount, timestamp: current_time, stake_id: 1 }
+                StakeCompletedEvent {stake_id:1,old_stake_id:1,user_address, amount: input_amount, start_time:current_time, end_time }
             );
         } else {
             let user_stakes_table = borrow_global_mut<UserStakes>(user_address);
@@ -723,11 +835,10 @@ module KGeNAdmin::rKGeN_staking {
             
             rKGEN::transfer(user, resource_addr, input_amount);
             event::emit(
-                AddStakeEvent { amount: input_amount, timestamp: current_time, stake_id: user_stakes_table.stake_id }
+                StakeCompletedEvent {stake_id:user_stakes_table.stake_id,old_stake_id:user_stakes_table.stake_id,user_address,amount:input_amount,start_time:current_time,end_time}
             );
         };
     }
-
     public entry fun harvest(
         user: &signer, platform: &signer, stake_id: u64
     ) acquires UserStakes, Admin,RewardsAdmin{
@@ -874,5 +985,35 @@ module KGeNAdmin::rKGeN_staking {
 
         (total_rewards_earned & 0xFFFFFFFFFFFFFFFF as u64)
     }
+ public entry fun unstake(user: &signer, platform: &signer, stake_id: u64)acquires UserStakes,Admin{
+        assert!(
+            verify_platform(&signer::address_of(platform)),
+            error::invalid_argument(EINVALID_PLATFORM)
+        );
+        let user_address = signer::address_of(user);
+        // Verify the stake exists
+        assert!(
+        is_stake_exists(user_address, stake_id),
+        error::not_found(ESTAKE_NOT_EXIST)
+         );
+        let user_stake_table = borrow_global_mut<UserStakes>(user_address);
+        let stake = simple_map::borrow_mut(&mut user_stake_table.stakes, &stake_id);
 
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
+        let resource_signer = account::create_signer_with_capability(&res_config.signer_cap);
+        let current_time = timestamp::now_seconds();
+        let  amount_to_unstake = stake.amount;
+        let lock_end_time = stake.start_time + (stake.duration * SECONDS_IN_DAY);
+         if (current_time < lock_end_time) {
+          amount_to_unstake = amount_to_unstake - stake.total_claimed;
+         };
+         let resource_signer_account = get_resource_acc_address();
+        rKGEN::transfer(&resource_signer, user_address, amount_to_unstake);
+         // Emit an Unstake event
+        //add sender and receiver
+        event::emit(UnstakeCompletedEvent {stake_id:user_stake_table.stake_id,amount:amount_to_unstake,sender:resource_signer_account,receiver:user_address,start_time:current_time,end_time:lock_end_time});
+
+        // Remove the stake record
+        simple_map::remove(&mut user_stake_table.stakes, &stake_id);
+    }
 }
