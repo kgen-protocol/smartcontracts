@@ -28,7 +28,7 @@ module KGeNAdmin::airdrop {
     /// No address is nominated
     const ENO_NOMINATED: u64 = 5;
     /// ChainID
-    const CHAIN_ID: u64 = 2;  //For mainnet
+    const CHAIN_ID: u64 = 1;  //For mainnet
 
     /// Seed for creating a resource account
     const LAUNCHPAD_SEED: vector<u8> = b"rKGeN Launchpad";
