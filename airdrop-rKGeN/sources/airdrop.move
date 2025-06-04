@@ -97,13 +97,12 @@ module KGeNAdmin::airdrop {
         amount : u64,
         token : address
     }
-    // only used for stage 
-    // #[event]
-    // struct AdminWithdrwal has drop, store {
-    //     admin : address,
-    //     amount : u64,
-    //     token : address
-    // }
+    #[event]
+    struct AdminWithdrwal has drop, store {
+        admin : address,
+        amount : u64,
+        token : address
+    }
     #[view]
     // Return the resource _account address.
     public fun get_resource_account(): address acquires AdminStore {
@@ -362,4 +361,21 @@ module KGeNAdmin::airdrop {
        );
         event::emit<AdminWithdrawal>(AdminWithdrawal {admin:admin_address,amount,token:object });
    }
+   public entry fun transfer_from_resource_account_to_treasury (admin:&signer,treasury:address,object:address,amount: u64) acquires AdminStore {
+       let admin_address = signer::address_of(admin);
+       assert!(
+            admin_address == get_admin(),
+            error::permission_denied(ENOT_ADMIN)
+        );
+       let sender = &get_resource_account_sign();
+       primary_fungible_store::transfer(
+           sender,
+           get_metadata_object(object),
+           treasury ,
+           amount
+       );
+        event::emit<AdminWithdrawal>(AdminWithdrawal {admin:treasury,amount,token:object });
+   }
+
 }
+
