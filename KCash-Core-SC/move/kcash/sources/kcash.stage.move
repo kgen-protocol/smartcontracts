@@ -36,12 +36,12 @@
 
 //     const ASSET_SYMBOL: vector<u8> = b"FA";
 //     const METADATA_NAME: vector<u8> = b"KCash";
-//     const ICON_URI: vector<u8> = b"https://kgen.io/favicon.ico";
-//     const PROJECT_URI: vector<u8> = b"https://kgen.io";
+//     const ICON_URI: vector<u8> = b"http://example.com/favicon.ico";
+//     const PROJECT_URI: vector<u8> = b"http://example.com";
 //     const BUCKET_CORE_SEED: vector<u8> = b"BA";
 //     const BUCKET_COLLECTION_DESCRIPTION: vector<u8> = b"Bucket collections";
 //     const BUCKET_COLLECTION_NAME: vector<u8> = b"Bucket store";
-//     const FIRST_SIGNER_KEY: vector<u8> = x"d8ff85937b161599d385ef471fa544907a17452cc38afc2c953a8326bf4a7399";
+//     const FIRST_SIGNER_KEY: vector<u8> = x"72717d170bb83e81874da66b6f94755bfc6f67b7ed450c3a64cab316bcce32b7";
 
 
 //     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -126,8 +126,10 @@
 //   struct RewardsBucket has key {
 //         buckets: ordered_map::OrderedMap<address, BucketStoreV1>,
 //     }
-//     public entry fun initialize_new_buckets(admin: &signer) {
+//     public entry fun initialize_new(admin: &signer) {
+
 //         assert!(!exists<RewardsBucket>(signer::address_of(admin)),EALREADY_EXIST);
+//         assert!(is_owner(signer::address_of(admin)),ENOT_OWNER);
 //         let buckets = ordered_map::new<address, BucketStoreV1>();
 //         move_to(admin, RewardsBucket { buckets });
 //     }
@@ -324,12 +326,18 @@
 //             (0, 0, 0)
 //         }
 //     }
+// fun create_new_bucket_store(user: address){}
 // // The function create_bucket_storeV1 uses BucketStoreV1 because it represents the latest version
 // // of the bucket structure, which includes the fields `reward1`, `reward2`, and `reward3` for 
 // // storing the user's rewards. This ensures consistency and compatibility with the updated reward system.
 // // 
-// // Previously, we were using a **fungible store** to handle user buckets, which cost high gas for 
+// // Previously, we were using a **fungible store** to handle user buckets, which was suited for 
 // // managing token-like data. However, we are now transitioning to using a **contract store**.
+// // 
+// // The contract store allows us to store more complex, user-specific data (such as rewards) within
+// // the contract, ensuring greater flexibility, better access control, and consistency across the system.
+// // The contract store is ideal for handling structured data like the BucketStore, which needs to be 
+// // tightly controlled and easily manipulated by the contract logic.
 // fun create_bucket_storeV1(user: address) acquires BucketStore, RewardsBucket {
 //     let token_address = get_bucket_user_address(&user);
 //     let rewards_bucket = borrow_global_mut<RewardsBucket>(@KCashAdmin);
@@ -339,7 +347,6 @@
 //         let new_bucket = BucketStoreV1 { reward1: 0, reward2: 0, reward3: 0 };
 //         rewards_bucket.buckets.add(user, new_bucket);
 //     } 
-//     // if false && true == false 
 //     // Case 2: If the user has a BucketStore but isn't in RewardsBucket
 //     else if (exists<BucketStore>(token_address) && !rewards_bucket.buckets.contains(&user)) {
 //         let old_bucket = borrow_global_mut<BucketStore>(token_address);
@@ -500,45 +507,46 @@
 //         bs.reward3 = bs.reward3 + reward3;
 //         event::emit(DepositToBucket { receiver: *receiver, reward1, reward2, reward3 });
 //     }
+//    public entry fun deposit_rewards_to_bucket(user: address, r1: u64, r2: u64, r3: u64){
+//     }
 // // The function deposit_to_bucketV1 deposits rewards into a user's bucket. It checks if the user 
 // // already has a bucket in the RewardsBucket contract store. If the user has a bucket, the function 
 // // updates the reward values (reward1, reward2, reward3). If the user does not have a bucket, it 
 // // creates a new bucket for the user using create_bucket_storeV1 and then deposits the rewards into it.
 // // Previously, we used a **fungible store** for managing user buckets and rewards. However, we are now 
-// // transitioning to using a **contract store** to store user reward data due to high gas fee. 
+// // transitioning to using a **contract store** to store user reward data. This allows for better 
+// // handling of complex, user-specific data and ensures more flexibility, control, and consistency 
+// // across the system. The contract store is ideal for storing structured data like the BucketStore, 
+// // which is tightly controlled and needs to be managed by the contract logic.
+//      fun deposit_to_bucketV1(user: address, r1: u64, r2: u64, r3: u64) acquires RewardsBucket,BucketStore {
+//         let rewards_bucket = borrow_global<RewardsBucket>(@KCashAdmin);
 
-// fun deposit_to_bucketV1(user: address, r1: u64, r2: u64, r3: u64) acquires RewardsBucket,BucketStore {
-//     // Borrow the RewardsBucket object
-//     let rewards_bucket_mut = borrow_global_mut<RewardsBucket>(@KCashAdmin);
-    
-//     // Check if the user already has a bucket
-//     let mut bucket_ref;
-
-//     if rewards_bucket_mut.buckets.contains(&user) {
-//         // If the user already has a bucket, borrow it
-//         bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
-//     } else {
-//         // If the user doesn't have a bucket, create a new one
-//         create_bucket_storeV1(user);
-//         bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
+//         if (rewards_bucket.buckets.contains(&user)) {
+//             let rewards_bucket_mut = borrow_global_mut<RewardsBucket>(@KCashAdmin);
+//             let bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
+//             bucket_ref.reward1 = bucket_ref.reward1 + r1;
+//             bucket_ref.reward2 = bucket_ref.reward2 + r2;
+//             bucket_ref.reward3 = bucket_ref.reward3 + r3;
+//         } else {
+//             {  create_bucket_storeV1(user);};
+//             let rewards_bucket_mut = borrow_global_mut<RewardsBucket>(@KCashAdmin);
+//             let bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
+//             bucket_ref.reward1 = bucket_ref.reward1 + r1;
+//             bucket_ref.reward2 = bucket_ref.reward2 + r2;
+//             bucket_ref.reward3 = bucket_ref.reward3 + r3;
+//         };
 //     }
+//       #[view]
+//     public fun get_rewards_new(user: address): (u64, u64, u64) acquires RewardsBucket {
+//         let rewards_bucket = borrow_global<RewardsBucket>(@KCashAdmin);
 
-//     // Update the rewards in the bucket
-//     bucket_ref.reward1 = bucket_ref.reward1 + r1;
-//     bucket_ref.reward2 = bucket_ref.reward2 + r2;
-//     bucket_ref.reward3 = bucket_ref.reward3 + r3;
-
-//     // Emit the deposit event
-//     event::emit(DepositToBucket {
-//         receiver: user,
-//         reward1: r1,
-//         reward2: r2,
-//         reward3: r3
-//     });
-// }
-
-
-
+//         if (rewards_bucket.buckets.contains(&user)) {
+//             let bucket_ref = rewards_bucket.buckets.borrow(&user);
+//             (bucket_ref.reward1, bucket_ref.reward2, bucket_ref.reward3)
+//         } else {
+//             (0, 0, 0)
+//         }
+//     }
 //     /*  To withdraw the rewards value of the user's bucket store
 //         @param amount which is withdraw from the bucketstore in order 
 //         reward3, reward2, reward1
@@ -569,6 +577,7 @@
 //         @param reward2 which is withdraw from the bucketstore's reward2
 //         @param reward3 which is withdraw from the bucketstore's reward3
 //     */ 
+//     // return bucket and update the data in new bucket ---> need to fun to udpate the bucket
 //     fun withdraw_rewards_from_bucket(owner: address, r1: u64, r2: u64, r3: u64) acquires RewardsBucket,BucketStore{
 //         assert!(has_bucket_store(owner), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
 //          create_bucket_storeV1(owner);
@@ -614,7 +623,6 @@
 
 //     /// Internal function user transfer from bucket3 to any bucket based on the index
 //     fun user_transfer_internal(from: &signer, to: &address, amount: &u64, index: u8) acquires RewardsBucket, ManagedFungibleAsset, BucketStore{
-       
 //         create_bucket_storeV1(signer::address_of(from));
 //         create_bucket_storeV1(*to);
 //         let rewards_bucket = borrow_global_mut<RewardsBucket>(@KCashAdmin);
@@ -722,6 +730,34 @@
 //         let (_, i) = vector::index_of(&signer_struct.signer_vec, &signr);
 //         vector::remove(&mut signer_struct.signer_vec, i);
 //     }
+//    // :!:>mint
+//     /// Mint as the owner of metadata object or the account with minter role and deposit to a specific account.
+//     public entry fun mint_new(
+//         admin: &signer, 
+//         to: address, 
+//         amount: u64, 
+//         r1: u64, 
+//         r2: u64, 
+//         r3: u64
+//     ) acquires ManagedFungibleAsset, AdminMinterRole,RewardsBucket,BucketCore,BucketStore {
+//         assert!(verifyMinter(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
+//         assert!(amount >= 0 && r1 >= 0 && r2 >= 0 && r3 >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
+//         assert!(r1+r2+r3 == amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_TO_ASSETS));
+//         let asset = get_metadata();
+//         let mint_ref_borrow = authorized_borrow_mint_refs(admin, asset);
+//         let transfer_ref_borrow = authorized_borrow_transfer_refs(asset);
+//         let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
+
+//         let fa = fungible_asset::mint(mint_ref_borrow, amount);
+//         // create a store if not exist and deposit the values in bucket
+//         deposit_to_bucket(&to, r1, r2, r3);
+//         fungible_asset::deposit_with_ref(transfer_ref_borrow, to_wallet, fa);
+
+//         // Freeeze the account so that native trnsfer would not work
+//         // let wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
+//         fungible_asset::set_frozen_flag(transfer_ref_borrow, to_wallet, true);
+
+//     }// <:!:mint_to
 //     // :!:>mint
 //     /// Mint as the owner of metadata object or the account with minter role and deposit to a specific account.
 //     public entry fun mint(
