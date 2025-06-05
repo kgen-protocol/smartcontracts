@@ -4,8 +4,8 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-RevenueContractV2 = "0x5a96fab415f43721a44c5a761ecfcccc3dae9c21f34313f0e594b49d8d4564f4"
-deployer = "0x5a96fab415f43721a44c5a761ecfcccc3dae9c21f34313f0e594b49d8d4564f4"
+RevenueContractV2 = "0x28f6613ad696b36f3f542160f020ed21e0d10798da26454dfc0785599dacda4f"
+deployer = "0x28f6613ad696b36f3f542160f020ed21e0d10798da26454dfc0785599dacda4f"
 
 
 [dev-addresses]

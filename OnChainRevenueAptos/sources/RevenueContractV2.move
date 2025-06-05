@@ -22,7 +22,6 @@ module RevenueContractV2::RevenueContractV2 {
     const EADMIN_ALREADY_PRESENT:u64 = 109;
     const ETOKEN_ALREADY_WHITELISTED:u64 = 110;
     const ENOT_DEPLOYER:u64 = 111;
-
     const DEPLOYER_ADDRESS:address = @deployer;
     #[event]
     /// Emitted when deposit fungible asset to contract 
@@ -31,7 +30,11 @@ module RevenueContractV2::RevenueContractV2 {
         token:address,
         amount:u64
     }
-    
+
+   struct RevenueEventHolder has key {
+        deposit_fungible: event::EventHandle<DepositFungibleAsset>,
+    }
+
     struct Vault has key {
         admins_list: vector<address>,
         signer_cap: account::SignerCapability,
@@ -39,6 +42,11 @@ module RevenueContractV2::RevenueContractV2 {
         nativeCoins: Coin<aptos_coin::AptosCoin>, // Holds APT instead of storing it directly in the account balance
         faCoins: Table<address, Object<FungibleStore>>, // Store multiple token types
         whiteListedTokens:vector<address>
+    }
+  public entry fun initializeV1(account: &signer)  {
+         move_to(account, RevenueEventHolder {
+            deposit_fungible: account::new_event_handle<DepositFungibleAsset>(account),
+        });
     }
 
     public entry fun initialize(account: &signer){
@@ -56,7 +64,6 @@ module RevenueContractV2::RevenueContractV2 {
             signer_cap : signer_capability
         });
     }
-
     public entry fun deposit_native(account: &signer, amount: u64) acquires Vault {
         let vault_address = get_vault_address();
         assert!(exists<Vault>(vault_address), EVAULT_NOT_CREATED);
@@ -154,7 +161,7 @@ module RevenueContractV2::RevenueContractV2 {
         account: &signer, 
         token_address: address, 
         amount: u64,
-    ) acquires Vault {
+    ) acquires Vault ,RevenueEventHolder {
         let vault_address = get_vault_address();
         assert!(exists<Vault>(vault_address), EVAULT_NOT_CREATED);
         assert!(amount > 0, EZERO_TOKEN_DEPOSIT);
@@ -167,10 +174,16 @@ module RevenueContractV2::RevenueContractV2 {
         let store = *store_ref;
         let withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(account, sender_store, amount);
         dispatchable_fungible_asset::deposit<FungibleStore>(store,withdraw);
-        let sender  =  signer::address_of(account);
-        event::emit(DepositFungibleAsset{sender,token:token_address,amount});
-
-    }
+        let sender = signer::address_of(account);
+        let revenue_event_holder = borrow_global_mut<RevenueEventHolder>(@RevenueContractV2);
+        event::emit_event<DepositFungibleAsset>(
+            &mut revenue_event_holder.deposit_fungible,
+            DepositFungibleAsset{
+                sender,
+                token: token_address,
+                amount,
+            }
+        );}
 
     fun create_vault_fa_store(
         token_address:address,
