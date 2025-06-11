@@ -1,0 +1,24 @@
+[package]
+name = "kgen_oracle_package"
+version = "1.0.0"
+authors = []
+
+[addresses]
+KGeN = "_"
+KGeNAdmin = "0x13e5627dbeb0c1f812ed727fa2dead1cd9d0b2fd92b2a33bc09a22edc6256ff2"
+rKGenAdmin="0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "72d90dc"
+subdir = "aptos-framework"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = '81a2f42'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+[dependencies.rKGeN_staking]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "c07d002"
+subdir = 'staking-rKGeN'
