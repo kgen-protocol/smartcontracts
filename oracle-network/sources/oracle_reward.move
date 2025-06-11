@@ -43,6 +43,8 @@ module KGeN::oracle_reward {
     const YIELD_DECIMALS: u64 = 10000;
     const SECONDS_PER_DAY: u64 = 86400;
     const OFFSET19700101: u64 = 2440588; // Constant for Unix epoch offset
+    const RKGEN_DECIMAL: u64 = 100000000;
+    const USDT_DECIMAL: u64 = 1000000;
 
     struct Tiers has drop, store, copy {
         min_keys: u64,
@@ -253,6 +255,13 @@ module KGeN::oracle_reward {
 
         let i = 0;
         let len = vector::length(&reward_months);
+        if (!oracles_info.is_upfront_released
+            && days_from_registration(oracles_info.registration_date)
+                >= meta.days_for_upfront) {
+            let reward = (ry * 10) / 100;
+            total_rK_coins = total_rK_coins + (reward * key_balance);
+        };
+
         while (i < len) {
 
             let YearMonth { reward_year, reward_month } =
@@ -425,7 +434,10 @@ module KGeN::oracle_reward {
         if (is_manual_time_applicable()) {
             current_timestamp = get_manual_time();
         };
-        (current_timestamp - registration_date) / SECONDS_PER_DAY
+        if (registration_date >= current_timestamp) { 0 }
+        else {
+            (current_timestamp - registration_date) / SECONDS_PER_DAY
+        }
     }
 
     inline fun assert_oracle_exist(oracle: &address) {
@@ -779,17 +791,16 @@ module KGeN::oracle_reward {
         let (_, _, reward) = get_reward_yield(key_balance);
         reward = (reward * 10) / 100;
 
-        let rKGeN_address = get_metadata_object(meta.rKGeN_metadata);
-        transfer_rewards_from_resource(
-            oracles_info.reward_wallet, meta.rKGeN_metadata, reward * key_balance
-        );
-
-        oracles_info.rKGeN_rewarded = oracles_info.rKGeN_rewarded
-            + reward * key_balance;
-        oracles_info.total_rKGeN_held =
-            primary_fungible_store::balance(oracles_info.reward_wallet, rKGeN_address)
-                + rKGeN_staking::get_staked_balance(oracles_info.reward_wallet);
+        oracles_info.rKGeN_rewarded =
+            oracles_info.rKGeN_rewarded + reward * key_balance * RKGEN_DECIMAL;
+        oracles_info.total_rKGeN_held = reward * key_balance * RKGEN_DECIMAL;
         oracles_info.is_upfront_released = true;
+
+        transfer_rewards_from_resource(
+            oracles_info.reward_wallet,
+            meta.rKGeN_metadata,
+            reward * key_balance * RKGEN_DECIMAL
+        );
 
         event::emit(
             UpfrontTransfer {
@@ -903,17 +914,16 @@ module KGeN::oracle_reward {
             && days_from_registration(oracles_info.registration_date)
                 >= meta.days_for_upfront) {
             let reward = (ry * 10) / 100;
+            oracles_info.rKGeN_rewarded =
+                oracles_info.rKGeN_rewarded + reward * key_balance * RKGEN_DECIMAL;
+            oracles_info.total_rKGeN_held = reward * key_balance * RKGEN_DECIMAL;
+            oracles_info.is_upfront_released = true;
 
             transfer_rewards_from_resource(
-                oracles_info.reward_wallet, meta.rKGeN_metadata, reward * key_balance
+                oracles_info.reward_wallet,
+                meta.rKGeN_metadata,
+                reward * key_balance * RKGEN_DECIMAL
             );
-
-            oracles_info.rKGeN_rewarded = oracles_info.rKGeN_rewarded
-                + reward * key_balance;
-            oracles_info.total_rKGeN_held =
-                primary_fungible_store::balance(oracles_info.reward_wallet, rKGeN_meta)
-                    + rKGeN_staking::get_staked_balance(oracles_info.reward_wallet);
-            oracles_info.is_upfront_released = true;
 
             event::emit(
                 UpfrontTransfer {
@@ -998,30 +1008,32 @@ module KGeN::oracle_reward {
 
         // Transfer rewards
         if (oracles_info.is_stablecoin_applied) {
+            oracles_info.last_rewarded_time = current_timestamp;
+            // Update reward tracking
+            oracles_info.stablecoin_rewarded =
+                oracles_info.stablecoin_rewarded + total_stable_coins * USDT_DECIMAL;
             transfer_rewards_from_resource(
                 oracles_info.reward_wallet,
                 meta.stablecoin_metadata,
-                total_stable_coins
+                total_stable_coins * USDT_DECIMAL
             );
         };
 
         if (total_rK_coins > 0 || total_rKb_coins > 0) {
+            oracles_info.last_rewarded_time = current_timestamp;
+            let amt = total_rK_coins + total_rKb_coins;
+            oracles_info.rKGeN_rewarded =
+                oracles_info.rKGeN_rewarded + total_rK_coins * RKGEN_DECIMAL;
+            oracles_info.rKGeN_bonus_rewarded =
+                oracles_info.rKGeN_bonus_rewarded + total_rKb_coins * RKGEN_DECIMAL;
+            oracles_info.total_rKGeN_held =
+                oracles_info.total_rKGeN_held + amt * RKGEN_DECIMAL;
             transfer_rewards_from_resource(
                 oracles_info.reward_wallet,
                 meta.rKGeN_metadata,
-                total_rK_coins + total_rKb_coins
+                amt * RKGEN_DECIMAL
             );
         };
-
-        // Update reward tracking
-        oracles_info.rKGeN_rewarded = oracles_info.rKGeN_rewarded + total_rK_coins;
-        oracles_info.rKGeN_bonus_rewarded =
-            oracles_info.rKGeN_bonus_rewarded + total_rKb_coins;
-        oracles_info.total_rKGeN_held =
-            oracles_info.total_rKGeN_held + total_rK_coins + total_rKb_coins;
-        oracles_info.stablecoin_rewarded =
-            oracles_info.stablecoin_rewarded + total_stable_coins;
-        oracles_info.last_rewarded_time = current_timestamp;
 
         // Emit event
         event::emit(
