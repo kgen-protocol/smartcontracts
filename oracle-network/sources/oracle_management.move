@@ -453,17 +453,23 @@ module KGeN::oracle_management {
     // Initializes the module by setting up the AdminStore resource under the admin's account.
     fun init_module(admin: &signer) {
         // Create and initialize the AdminStore resource
+        let node_monitors = vector::empty<address>();
+        vector::push_back(&mut node_monitors, @0x0a01df134b9c874d19c147d3a541984341591372e3939eb411c158b31c9405f0);
+        let operator_web_platform = vector::empty<address>();
+        vector::push_back(&mut operator_web_platform, @0xe48415b8202f110a6ae22663bf3cbfb23af56ac675803c59519d3f0350767d44);
+        let proxy_automation_platform = vector::empty<address>();
+        vector::push_back(&mut proxy_automation_platform, @0xa09f4a7e8f73fa5b4986a841b4ac4d8c35ed8d6687b723ab04c9573ea2bd2782);
         let admin_resource = AdminStore {
             admin_address: signer::address_of(admin),
-            node_monitors: vector::empty<address>(),
+            node_monitors,
             nominated_admin: option::none(),
             node_registry: smart_table::new<address, OracleNodeStruct>(),
             kgen_pub_key: string::utf8(
                 b"03c3036fd066c9467472b5374c3665349dd735c01f58c6983ffb19ae799d759734"
             ),
             admin_web_platform: vector::empty<address>(),
-            operator_web_platform: vector::empty<address>(),
-            proxy_automation_platform: vector::empty<address>()
+            operator_web_platform,
+            proxy_automation_platform
         };
         // Store the resource under the admin's address
         move_to(admin, admin_resource);
