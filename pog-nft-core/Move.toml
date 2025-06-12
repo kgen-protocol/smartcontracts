@@ -4,10 +4,11 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-KGeN = "_"
+KGeNPOG = "_"
+KGeN = "0x5c4124ac3f8b9cc6d0b0f4ea367084bb67570e56e90b1515a879cfe9d95216df"
 
 [dev-addresses]
-KGeN = "0x123"
+KGeNPOG = "0x123"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
@@ -24,7 +25,7 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'mainnet'
 subdir = 'aptos-move/framework/aptos-token-objects'
 
-[dependencies.kgen_oracle_storage]
-local = '../KGeN-oracle_storage'
+[dependencies.kgen_oracle_package]
+local = '../oracle-network'
 
 [dev-dependencies]

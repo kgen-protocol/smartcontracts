@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-KGeN = "_"
+KGeN = "0x5c4124ac3f8b9cc6d0b0f4ea367084bb67570e56e90b1515a879cfe9d95216df"
 KGeNAdmin = "0x13e5627dbeb0c1f812ed727fa2dead1cd9d0b2fd92b2a33bc09a22edc6256ff2"
 rKGenAdmin="0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611"
 

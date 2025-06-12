@@ -14,7 +14,7 @@
 // - Burn Mechanisms: Includes functions for token burning by the user or admin.
 //
 // This contract is designed with security and usability in mind, promoting fair and transparent interaction for players.
-module KGeN::PoGNFT {
+module KGeNPOG::PoGNFT {
     // ======Import standard library modules and Aptos-specific functionality======
     use std::error;
     use std::option::{Self, Option};
@@ -28,7 +28,7 @@ module KGeN::PoGNFT {
     use aptos_framework::event;
     use aptos_std::string_utils::{to_string};
     use aptos_std::from_bcs;
-    use KGeN::kgen_oracle_storage::{Self};
+    use KGeN::oracle_storage::{Self};
 
     //  ======Constants======
 
@@ -245,13 +245,13 @@ module KGeN::PoGNFT {
     #[view]
     // 1. get_admin()
     public fun get_admin(): address acquires Admin {
-        borrow_global<Admin>(@KGeN).admin
+        borrow_global<Admin>(@KGeNPOG).admin
     }
 
     #[view]
     // 2. get_counter_value()
     public fun get_counter_value(): u128 acquires Counter {
-        borrow_global<Counter>(@KGeN).count
+        borrow_global<Counter>(@KGeNPOG).count
     }
 
     #[view]
@@ -335,7 +335,7 @@ module KGeN::PoGNFT {
 
     #[view]
     public fun is_oracle_required(): bool acquires Admin {
-        borrow_global<Admin>(@KGeN).allow_data_by_oracle
+        borrow_global<Admin>(@KGeNPOG).allow_data_by_oracle
     }
 
     //  ====== Module Initialization Function======
@@ -388,7 +388,7 @@ module KGeN::PoGNFT {
 
     //Retrieves the base URI from the global storage, where the URI is stored.
     public fun get_base_uri(): String acquires BaseURI {
-        borrow_global<BaseURI>(@KGeN).uri
+        borrow_global<BaseURI>(@KGeNPOG).uri
     }
 
     // create_collections(): create a collection of objects from  where the tokens will be minted from .
@@ -525,7 +525,7 @@ module KGeN::PoGNFT {
 
     // get_token_signer_address(): Retrieves the address of the token signer (e.g., the module address for the Token Core).
     fun get_token_signer_address(): address {
-        object::create_object_address(&@KGeN, TOKEN_CORE_SEED)
+        object::create_object_address(&@KGeNPOG, TOKEN_CORE_SEED)
     }
 
     // get_token_signer(): Retrieves the signer for the token core, using the provided signer address (e.g., for extending the Token Core).
@@ -558,20 +558,46 @@ module KGeN::PoGNFT {
         o_values: vector<vector<u8>>,
         i_keys: vector<String>,
         i_values: vector<vector<u8>>
-    ): (vector<String>, vector<vector<u8>>){
+    ): (vector<String>, vector<vector<u8>>) {
         let result_keys = vector::empty<String>();
         let result_values = vector::empty<vector<u8>>();
 
-        vector::for_each(o_keys, |k| { vector::push_back(&mut result_keys, k); });
-        vector::for_each(o_values, |v| { vector::push_back(&mut result_values, v); });
-
-        vector::for_each(i_keys, |k| { 
-            if(!vector::contains(&result_keys, &k)){
+        vector::for_each(
+            o_keys,
+            |k| {
+                if (k == string::utf8(b"poh_score_data")) {
+                    k = string::utf8(b"Proof of Human Score Data (Encrypted)")
+                } else if (k == string::utf8(b"pop_score_data")) {
+                    k = string::utf8(b"Proof of Play Score Data (Encrypted)")
+                } else if (k == string::utf8(b"posk_score_data")) {
+                    k = string::utf8(b"Proof of Skill Score Data (Encrypted)")
+                } else if (k == string::utf8(b"poc_score_data")) {
+                    k = string::utf8(b"Proof of Commerce Score Data (Encrypted)")
+                } else if (k == string::utf8(b"pos_score_data")) {
+                    k = string::utf8(b"Proof of Social Score Data (Encrypted)")
+                } else if (k == string::utf8(b"pog_score_data")) {
+                    k = string::utf8(b"Proof of Gamer Score Data (Encrypted)")
+                };
                 vector::push_back(&mut result_keys, k);
-                let (_bo, i) = vector::index_of(&i_keys, &k);
-                vector::push_back(&mut result_values, *vector::borrow(&i_values, i));
             }
-        });
+        );
+        vector::for_each(
+            o_values,
+            |v| {
+                vector::push_back(&mut result_values, v);
+            }
+        );
+
+        vector::for_each(
+            i_keys,
+            |k| {
+                if (!vector::contains(&result_keys, &k)) {
+                    vector::push_back(&mut result_keys, k);
+                    let (_bo, i) = vector::index_of(&i_keys, &k);
+                    vector::push_back(&mut result_values, *vector::borrow(&i_values, i));
+                }
+            }
+        );
         (result_keys, result_values)
     }
 
@@ -584,7 +610,7 @@ module KGeN::PoGNFT {
             error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
-        let admin = borrow_global_mut<Admin>(@KGeN);
+        let admin = borrow_global_mut<Admin>(@KGeNPOG);
 
         admin.admin = new_admin;
     }
@@ -595,7 +621,7 @@ module KGeN::PoGNFT {
             error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
-        let admin = borrow_global_mut<Admin>(@KGeN);
+        let admin = borrow_global_mut<Admin>(@KGeNPOG);
 
         admin.allow_data_by_oracle = status;
     }
@@ -623,7 +649,7 @@ module KGeN::PoGNFT {
         let collection_name = string::utf8(COLLECTION_NAME);
 
         // Storing the counter value in a variable.
-        let counter_value = borrow_global_mut<Counter>(@KGeN);
+        let counter_value = borrow_global_mut<Counter>(@KGeNPOG);
 
         // Creating the Token name.
         let token_name = string::utf8(b"kgen.io-#");
@@ -681,7 +707,7 @@ module KGeN::PoGNFT {
         let aptos_token = borrow_global<KGenToken>(token_address);
 
         let (okeys, ovalues) =
-            kgen_oracle_storage::get_player_props(signer::address_of(user));
+            oracle_storage::get_player_scores(signer::address_of(user));
 
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
 
@@ -778,7 +804,7 @@ module KGeN::PoGNFT {
         let collection_name = string::utf8(COLLECTION_NAME);
 
         // Storing the counter value in a variable.
-        let counter_value = borrow_global_mut<Counter>(@KGeN);
+        let counter_value = borrow_global_mut<Counter>(@KGeNPOG);
 
         // Creating the Token name.
         let token_name = string::utf8(b"kgen.io-#");
@@ -1107,7 +1133,7 @@ module KGeN::PoGNFT {
         i_values: vector<vector<u8>>
     ) acquires KGenToken, Admin {
         let (okeys, ovalues) =
-            kgen_oracle_storage::get_player_props(signer::address_of(user));
+            oracle_storage::get_player_scores(signer::address_of(user));
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
         update_player_score(user, admin, token_name, keys, values);
     }
@@ -1184,7 +1210,7 @@ module KGeN::PoGNFT {
 
     // ======Test Cases======
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     public fun test_mint_and_burn_by_user(
         admin: &signer, acc1: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
@@ -1227,7 +1253,7 @@ module KGeN::PoGNFT {
         assert!(!exists<KGenToken>(token_address), 7);
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     public fun test_mint_and_burn_by_admin(
         admin: &signer, acc1: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
@@ -1271,7 +1297,7 @@ module KGeN::PoGNFT {
         );
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     public fun test_fetch_and_update(
         admin: &signer, acc1: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
@@ -1371,7 +1397,7 @@ module KGeN::PoGNFT {
 
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     public fun test_change_token_name_and_avatar_uri(
         admin: &signer, acc1: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
@@ -1451,7 +1477,7 @@ module KGeN::PoGNFT {
         );
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     public fun test_manage_admin(admin: &signer, acc1: &signer) acquires Admin {
         init_module(admin);
         assert!(
@@ -1467,7 +1493,7 @@ module KGeN::PoGNFT {
 
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     // #[expected_failure()]
     public fun test_max_limit(
         admin: &signer, acc1: &signer
@@ -1544,7 +1570,7 @@ module KGeN::PoGNFT {
         assert!(exists<KGenToken>(token_address), 16);
     }
 
-    #[test(admin = @KGeN)]
+    #[test(admin = @KGeNPOG)]
     public fun test_collection_address(admin: &signer) {
         init_module(admin);
         // std::debug::print(&get_collection_address());
@@ -1553,7 +1579,7 @@ module KGeN::PoGNFT {
         // std::debug::print(&get_collection_address());
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     #[expected_failure]
     public fun test_oracle_approvale(
         admin: &signer, acc1: &signer
@@ -1592,7 +1618,7 @@ module KGeN::PoGNFT {
         );
     }
 
-    #[test(admin = @KGeN, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1)]
     // #[expected_failure()]
     public fun test_mint_oracle(
         admin: &signer, acc1: &signer
