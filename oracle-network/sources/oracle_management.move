@@ -454,11 +454,20 @@ module KGeN::oracle_management {
     fun init_module(admin: &signer) {
         // Create and initialize the AdminStore resource
         let node_monitors = vector::empty<address>();
-        vector::push_back(&mut node_monitors, @0x0a01df134b9c874d19c147d3a541984341591372e3939eb411c158b31c9405f0);
+        vector::push_back(
+            &mut node_monitors,
+            @0x0a01df134b9c874d19c147d3a541984341591372e3939eb411c158b31c9405f0
+        );
         let operator_web_platform = vector::empty<address>();
-        vector::push_back(&mut operator_web_platform, @0xe48415b8202f110a6ae22663bf3cbfb23af56ac675803c59519d3f0350767d44);
+        vector::push_back(
+            &mut operator_web_platform,
+            @0xe48415b8202f110a6ae22663bf3cbfb23af56ac675803c59519d3f0350767d44
+        );
         let proxy_automation_platform = vector::empty<address>();
-        vector::push_back(&mut proxy_automation_platform, @0xa09f4a7e8f73fa5b4986a841b4ac4d8c35ed8d6687b723ab04c9573ea2bd2782);
+        vector::push_back(
+            &mut proxy_automation_platform,
+            @0xa09f4a7e8f73fa5b4986a841b4ac4d8c35ed8d6687b723ab04c9573ea2bd2782
+        );
         let admin_resource = AdminStore {
             admin_address: signer::address_of(admin),
             node_monitors,
@@ -1831,37 +1840,7 @@ module KGeN::oracle_management {
         smart_table::remove(&mut oracle_registry.node_registry, primary_wallet);
     }
 
-    public entry fun deregister_node(primary_wallet: address) acquires AdminStore {
-
-        let oracle_registry = borrow_global_mut<AdminStore>(@KGeN);
-
-        // Ensure the primary wallet is registered
-        assert!(
-            smart_table::contains(&oracle_registry.node_registry, primary_wallet),
-            error::already_exists(EORACLE_NOT_REGISTERED)
-        );
-
-        let operator =
-            smart_table::borrow_mut(
-                &mut oracle_registry.node_registry,
-                primary_wallet
-            );
-
-        if (operator.is_poa_minted) {
-            // Burn the PoA-NFT
-            oracle_poa_nft::burn(operator.candidate_name, primary_wallet);
-
-            // Remove the primary wallet to public key mapping in aggregator
-            oracle_aggregator::remove_pub_key(operator.node_public_key);
-
-            // Remove entry from the node registry
-            oracle_reward::remove_primary_wallet(primary_wallet);
-            // Burn the PoA Keys
-            oracle_keys::burn(primary_wallet, operator.amount_of_keys);
-
-        };
-        smart_table::remove(&mut oracle_registry.node_registry, primary_wallet);
-    }
+    public entry fun deregister_node(primary_wallet: address) {}
 
     // === Reward Contract Methods ===
 
