@@ -258,8 +258,14 @@ module KGeN::oracle_reward {
         if (!oracles_info.is_upfront_released
             && days_from_registration(oracles_info.registration_date)
                 >= meta.days_for_upfront) {
-            let reward = (ry * 10) / 100;
-            total_rK_coins = total_rK_coins + (reward * key_balance);
+            let r =
+                fixed_point64::floor(
+                    fixed_point64::create_from_rational(
+                        (ry * key_balance * RKGEN_DECIMAL) as u128, 10
+                    )
+                );
+            let reward = (r & 0xFFFFFFFFFFFFFFFF as u64);
+            total_rK_coins = total_rK_coins + reward;
         };
 
         while (i < len) {
@@ -277,8 +283,7 @@ module KGeN::oracle_reward {
                 && reward_year == reg_year
                 && reward_month == reg_month) {
                 active_days = total_days - reg_day + 1;
-                if (days_from_registration(oracles_info.registration_date)
-                    < total_days / 2) {
+                if (active_days < total_days / 2) {
                     rKGeN_applied = false;
                 };
             };
@@ -913,23 +918,28 @@ module KGeN::oracle_reward {
         if (!oracles_info.is_upfront_released
             && days_from_registration(oracles_info.registration_date)
                 >= meta.days_for_upfront) {
-            let reward = (ry * 10) / 100;
-            oracles_info.rKGeN_rewarded =
-                oracles_info.rKGeN_rewarded + reward * key_balance * RKGEN_DECIMAL;
-            oracles_info.total_rKGeN_held = reward * key_balance * RKGEN_DECIMAL;
+            let r =
+                fixed_point64::floor(
+                    fixed_point64::create_from_rational(
+                        (ry * key_balance * RKGEN_DECIMAL) as u128, 10
+                    )
+                );
+            let reward = (r & 0xFFFFFFFFFFFFFFFF as u64);
+            oracles_info.rKGeN_rewarded = oracles_info.rKGeN_rewarded + reward;
+            oracles_info.total_rKGeN_held = reward;
             oracles_info.is_upfront_released = true;
 
             transfer_rewards_from_resource(
                 oracles_info.reward_wallet,
                 meta.rKGeN_metadata,
-                reward * key_balance * RKGEN_DECIMAL
+                reward
             );
 
             event::emit(
                 UpfrontTransfer {
                     oracle: signer::address_of(oracle_primary_wallet),
                     reward_wallet: oracles_info.reward_wallet,
-                    rewards: reward * key_balance,
+                    rewards: reward,
                     release_time: timestamp::now_seconds()
                 }
             );
@@ -950,8 +960,7 @@ module KGeN::oracle_reward {
                 && reward_year == reg_year
                 && reward_month == reg_month) {
                 active_days = total_days - reg_day + 1;
-                if (days_from_registration(oracles_info.registration_date)
-                    < total_days / 2) {
+                if (active_days < total_days / 2) {
                     rKGeN_applied = false;
                 };
             };
@@ -1011,27 +1020,25 @@ module KGeN::oracle_reward {
             oracles_info.last_rewarded_time = current_timestamp;
             // Update reward tracking
             oracles_info.stablecoin_rewarded =
-                oracles_info.stablecoin_rewarded + total_stable_coins * USDT_DECIMAL;
+                oracles_info.stablecoin_rewarded + total_stable_coins;
             transfer_rewards_from_resource(
                 oracles_info.reward_wallet,
                 meta.stablecoin_metadata,
-                total_stable_coins * USDT_DECIMAL
+                total_stable_coins
             );
         };
 
         if (total_rK_coins > 0 || total_rKb_coins > 0) {
             oracles_info.last_rewarded_time = current_timestamp;
             let amt = total_rK_coins + total_rKb_coins;
-            oracles_info.rKGeN_rewarded =
-                oracles_info.rKGeN_rewarded + total_rK_coins * RKGEN_DECIMAL;
+            oracles_info.rKGeN_rewarded = oracles_info.rKGeN_rewarded + total_rK_coins;
             oracles_info.rKGeN_bonus_rewarded =
-                oracles_info.rKGeN_bonus_rewarded + total_rKb_coins * RKGEN_DECIMAL;
-            oracles_info.total_rKGeN_held =
-                oracles_info.total_rKGeN_held + amt * RKGEN_DECIMAL;
+                oracles_info.rKGeN_bonus_rewarded + total_rKb_coins;
+            oracles_info.total_rKGeN_held = oracles_info.total_rKGeN_held + amt;
             transfer_rewards_from_resource(
                 oracles_info.reward_wallet,
                 meta.rKGeN_metadata,
-                amt * RKGEN_DECIMAL
+                amt
             );
         };
 
@@ -1108,7 +1115,7 @@ module KGeN::oracle_reward {
         res = fixed_point64::multiply_u128(res as u128, rKGeN_ratio);
 
         // Convert to u64, remove decimal precision, and divide by 10000 to get final result
-        (res & 0xFFFFFFFFFFFFFFFF as u64) / 10000
+        (res & 0xFFFFFFFFFFFFFFFF as u64) * USDT_DECIMAL / 10000
     }
 
     // Calculates the rKGeN yield for a given number of keys
@@ -1138,7 +1145,7 @@ module KGeN::oracle_reward {
         r = r * (keys as u128);
 
         // Convert to u64 and adjust decimal precision
-        let res = (r & 0xFFFFFFFFFFFFFFFF as u64);
+        let res = (r & 0xFFFFFFFFFFFFFFFF as u64) * RKGEN_DECIMAL;
         res / 10000
     }
 
@@ -1192,7 +1199,7 @@ module KGeN::oracle_reward {
         r = fixed_point64::multiply_u128(r, rKGeN_ratio);
 
         // Convert to u64 and adjust decimal precision
-        let res = (r & 0xFFFFFFFFFFFFFFFF as u64);
+        let res = (r & 0xFFFFFFFFFFFFFFFF as u64) * RKGEN_DECIMAL;
         res * keys / 10000
     }
 }
