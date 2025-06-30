@@ -1,0 +1,78 @@
+[package]
+name = "oapp"
+version = "1.0.0"
+authors = []
+
+[addresses]
+oapp = "0x19da09bcd30f1fc909fdb60dce1bbda3bc232644e5cfc4922267b65308c8a635"
+oapp_admin = "0x19da09bcd30f1fc909fdb60dce1bbda3bc232644e5cfc4922267b65308c8a635"
+router_node_0 = "0x7a19f544a6db990a1bfa6d84d0f53f918cd41765ec5b0d67abbdb78455f1d43a"
+simple_msglib = "0x98ab4d5f6f5ae0d3bc9d9785cfd63244fffc4652bf54f8971cb7035589a256eb"
+blocked_msglib = "0xb79b041ff861c2ec1e67138501270d978a35bd28817565a6752bfc469fa62c06"
+uln_302 = "0xcc1c03aed42e2841211865758b5efe93c0dde2cb7a2a5dc6cf25a4e33ad23690"
+router_node_1 = "0x8c65dab3f69a5c35eefed1e181f68890021797156dc1842b191b2ece7bda909a"
+endpoint_v2_common = "0x3bc8cbd74c2e1929c287a0063206fbb126314976146934bae12283f6120e99e9"
+endpoint_v2 = "0x7f03103b83c51c8b09be1751a797a65ac6e755f72947ecdecffc203d32d816c6"
+layerzero_admin = "0xb1f42e295868a61b2d78836f1199324c8964c84a54e8ff8f72c5a6594d600d07"
+layerzero_treasury_admin = "0xb1f42e295868a61b2d78836f1199324c8964c84a54e8ff8f72c5a6594d600d07"
+msglib_types = "0xd34d78d10b19757dd6bc007f7c2d07f6848c2eebfcc63b8eab95991751196df8"
+treasury = "0x3a9902a21eabd3552edfc104cb4a6ce1ac4fe5af6aa24a56037969e1a0db3d93"
+worker_peripherals = "0xb1f42e295868a61b2d78836f1199324c8964c84a54e8ff8f72c5a6594d600d07"
+price_feed_router_0 = "0xe7067908019da66726a41d09dde09bc5520a91089edd4a649ed36a01b4613b67"
+price_feed_router_1 = "0xbcb5f986fbffd251b26936d95d5c52761703ca1cdb3f3f3b71b5e7dd0a303813"
+price_feed_module_0 = "0xa762d65f42c852e0a7f6240ec6441694ea1b4786392cdfa5351dee8364c868fc"
+worker_common = "0xfe0b685e4cc9e77d91d008ef4161de68f7d7646c3bf67079fd4c2f0356631be8"
+executor_fee_lib_router_0 = "0xfb62a7ea757acc3b5a5f3e19794b6a5c9f6fd56c6e3fb392aac3d9d275ea4bca"
+executor_fee_lib_router_1 = "0x8824962f90a61eae9f0c2e1abaf90dac63929bb6ec0cd6c54ac1b4c9df295e29"
+dvn_fee_lib_router_0 = "0x4e27bce08903acad46c4cfd35229589cc8e6975a0f9beec0e8a9aa2a1b12574b"
+dvn_fee_lib_router_1 = "0x5248f0a5e6f1629e7e12dfb5d87a2b1ee3adf3f3cbf0c7a2b667053f336c985e"
+executor_fee_lib_0 = "0x4123c50265067995272e998193638aaf876d75454b2aba50d55d950b2236ff4e"
+dvn_fee_lib_0 = "0x9b77c6ad73d3e642f4c59ff191e1b460a7f4a16a67558edba1a744b4d6a88127"
+dvn = "0x756f8ab056688d22687740f4a9aeec3b361170b28d08b719e28c4d38eed1043e"
+native_token_metadata_address = "0xa"
+
+[dev-addresses]
+oapp = "0x302814823"
+oapp_admin = "0x302814821"
+router_node_0 = "0x10000f"
+simple_msglib = "0x100011"
+blocked_msglib = "0x100001"
+uln_302 = "0x100013"
+router_node_1 = "0x100010"
+endpoint_v2_common = "0x100007"
+endpoint_v2 = "0x100006"
+layerzero_admin = "0x200001"
+layerzero_treasury_admin = "0x200002"
+msglib_types = "0x10000b"
+treasury = "0x100012"
+worker_peripherals = "0x3000"
+price_feed_router_0 = "0x10000d"
+price_feed_router_1 = "0x10000e"
+price_feed_module_0 = "0x10000c"
+worker_common = "0x100014"
+executor_fee_lib_router_0 = "0x100009"
+executor_fee_lib_router_1 = "0x10000a"
+dvn_fee_lib_router_0 = "0x100004"
+dvn_fee_lib_router_1 = "0x100005"
+executor_fee_lib_0 = "0x100008"
+dvn_fee_lib_0 = "0x100003"
+dvn = "0x100002"
+
+# Note for Aptos CLI version >= 6.1.0 (the version supported by Aptos), use the following dependencies
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+# Note: For using Aptos CLI version <= 3.5.0 (the version supported by Movement), use the following dependencies:
+# [dependencies.AptosFramework]
+# git = "https://github.com/movementlabsxyz/aptos-core.git"
+# rev = "movement-cli-v3.5.0"
+# subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies]
+endpoint_v2_common = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "main", subdir = "packages/layerzero-v2/aptos/contracts/endpoint_v2_common" }
+endpoint_v2 = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "main", subdir = "packages/layerzero-v2/aptos/contracts/endpoint_v2" }
+
+[dev-dependencies]
+simple_msglib = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "main", subdir = "packages/layerzero-v2/aptos/contracts/msglib/libs/simple_msglib" }
