@@ -1,0 +1,246 @@
+{
+  "storage": [
+    {
+      "astId": 9690,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "apyRanges",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_array(t_struct(APYRange)9676_storage)dyn_storage))"
+    },
+    {
+      "astId": 9698,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "userTokenStakes",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_array(t_struct(StakeDetails)9667_storage)dyn_storage))"
+    },
+    {
+      "astId": 9704,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "userStakeCount",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 9710,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "activeStakeCount",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 9714,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "whitelistedToken",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 9718,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "nonce",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 9727,
+      "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(APYRange)9676_storage)dyn_storage": {
+      "base": "t_struct(APYRange)9676_storage",
+      "encoding": "dynamic_array",
+      "label": "struct KgenStorage.APYRange[]",
+      "numberOfBytes": "32"
+    },
+    "t_array(t_struct(StakeDetails)9667_storage)dyn_storage": {
+      "base": "t_struct(StakeDetails)9667_storage",
+      "encoding": "dynamic_array",
+      "label": "struct KgenStorage.StakeDetails[]",
+      "numberOfBytes": "32"
+    },
+    "t_array(t_uint256)50_storage": {
+      "base": "t_uint256",
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_array(t_struct(StakeDetails)9667_storage)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct KgenStorage.StakeDetails[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_struct(StakeDetails)9667_storage)dyn_storage"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_array(t_struct(StakeDetails)9667_storage)dyn_storage))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => struct KgenStorage.StakeDetails[]))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_array(t_struct(StakeDetails)9667_storage)dyn_storage)"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_mapping(t_uint256,t_array(t_struct(APYRange)9676_storage)dyn_storage))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint256 => struct KgenStorage.APYRange[]))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint256,t_array(t_struct(APYRange)9676_storage)dyn_storage)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_array(t_struct(APYRange)9676_storage)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct KgenStorage.APYRange[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_struct(APYRange)9676_storage)dyn_storage"
+    },
+    "t_struct(APYRange)9676_storage": {
+      "encoding": "inplace",
+      "label": "struct KgenStorage.APYRange",
+      "members": [
+        {
+          "astId": 9669,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "minAmount",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9671,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "maxAmount",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9673,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "apy",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9675,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "duration",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "128"
+    },
+    "t_struct(StakeDetails)9667_storage": {
+      "encoding": "inplace",
+      "label": "struct KgenStorage.StakeDetails",
+      "members": [
+        {
+          "astId": 9654,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "stakeId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9656,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "amount",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9658,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "startTime",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9660,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "duration",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9662,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "apy",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9664,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "totalClaimed",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9666,
+          "contract": "contracts/proxy/storage/Storage.sol:KgenStorage",
+          "label": "lastHarvested",
+          "offset": 0,
+          "slot": "6",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "224"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
