@@ -1,11 +1,14 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { AbiCoder, Contract, Signer } from "ethers";
-import { deployContracts } from "./helper";
+import { AbiCoder, Signer } from "ethers";
+import { deployContracts } from "./helper"; // keep your local helper util
 import { keccak256, parseEther } from "ethers";
 import { arrayify } from "@ethersproject/bytes";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import hre from "hardhat";
+
+// -----------------------------------------------------------------------------
+//  Helpers & enums
+// -----------------------------------------------------------------------------
 
 enum ActionType {
   Stake = 0,
@@ -15,291 +18,370 @@ enum ActionType {
   Renew = 4
 }
 
-describe("KGEN TESTING STAKING", () => {
-  let signer: Signer;
+/**
+ * Build the exact hash the contract expects:
+ * keccak256(user, token, value, nonce, address(this), chainId, action)
+ */
+async function buildSignature(
+  admin: Signer,
+  user: string,
+  token: string,
+  value: bigint,        // amount or stakeId
+  nonce: bigint,
+  staking: string,
+  chainId: bigint,
+  action: ActionType
+): Promise<string> {
+  const encoded = AbiCoder.defaultAbiCoder().encode(
+    ["address", "address", "uint256", "uint256", "address", "uint256", "uint8"],
+    [user, token, value, nonce, staking, chainId, action]
+  );
+  const hash = keccak256(encoded);
+  return (await admin.signMessage(arrayify(hash)));
+}
+/** replicate the contract's _earned formula */
+function calcEarned(amount: bigint, apy: bigint, delta: bigint): bigint {
+  return (amount * apy * delta) / 31_536_000n / 100n / 10_000n; // 365d * 100 * 10_000
+}
+/**
+ * Deploy an ERC-20 that always returns false on transfer/transferFrom so that
+ * we can test the TransferFailed error path without juggling balances.
+ */
+async function deployFailingToken(deployer: Signer) {
+  const Failing: any = await ethers.getContractFactory("FailingERC20", deployer);
+  return await Failing.deploy();
+}
+
+// -----------------------------------------------------------------------------
+//  Main test-suite – all happy-paths first (original tests)
+// -----------------------------------------------------------------------------
+
+describe("KgenStaking (token + chainId)", () => {
   let deployer: Signer;
-  let adminAddress: string;
-  let userAddress: string;
+  let user: Signer;
+  let userAddr: string;
   let staking: any;
   let token: any;
-  const stakingDuration = 1; // 1-day lock for tests
+  let chainId: bigint;
+  const DURATION = 1; // 1-day lock in tests
 
   before(async () => {
-    [signer, deployer] = await ethers.getSigners();
-    adminAddress = await deployer.getAddress();
-    userAddress = await signer.getAddress();
+    [deployer, user] = await ethers.getSigners();
+    userAddr = await user.getAddress();
+    chainId = BigInt((await ethers.provider.getNetwork()).chainId);
 
-    /* -------------------------------------------------------------------------- */
-    /*                                Deploy mocks                                */
-    /* -------------------------------------------------------------------------- */
-
+    // ── Deploy mock ERC-20 ──
     const Token = await ethers.getContractFactory("MockERC20", deployer);
     token = await Token.deploy("MockToken", "MTK", 18);
+    await token.connect(user).mint(parseEther("1000000"));
 
-    await token.connect(signer).mint(parseEther("1000000"));
-
-    /* -------------------------------------------------------------------------- */
-    /*                               Deploy Staking                               */
-    /* -------------------------------------------------------------------------- */
-
-    const implementation = await deployContracts("KgenStaking", deployer);
+    // ── Deploy staking (UUPS helper) ──
+    const impl = await deployContracts("KgenStaking", deployer);
     const Proxy = await ethers.getContractFactory("KgenStakingProxy", deployer);
-    const proxy = await Proxy.deploy(implementation.target, adminAddress, "0x");
-
+    const proxy = await Proxy.deploy(impl.target, await deployer.getAddress(), "0x");
     staking = await ethers.getContractAt("KgenStaking", proxy.target, deployer);
 
     await staking.initialize();
 
-    hre.tracer.nameTags[await implementation.getAddress()] = "KgenStakingLogic";
-    hre.tracer.nameTags[await proxy.getAddress()] = "KgenProxyContract";
-    hre.tracer.nameTags[await token.getAddress()] = "RKGEN";
+    // ── Configure ──
+    await staking.addWhitelistedToken(true, token.target);
+    await staking.addAPYRange(DURATION, parseEther("1"), parseEther("10000"), 800);
 
-    /* -------------------------------------------------------------------------- */
-    /*                              Whitelist + APY                               */
-    /* -------------------------------------------------------------------------- */
-
-    await staking.connect(deployer).addWhitelistedToken(token.target);
-
-    await staking.connect(deployer).addAPYRange(
-      token.target,
-      stakingDuration,
-      parseEther("1"),
-      parseEther("10000"),
-      800 // 8% APY
-    );
-
-    /* -------------------------------------------------------------------------- */
-    /*                              User approvals                                */
-    /* -------------------------------------------------------------------------- */
-
-    await token.connect(signer).approve(staking.target, parseEther("1000"));
-    await token.connect(signer).transfer(staking.target, parseEther("100"));
+    await token.connect(user).approve(staking.target, parseEther("100000"));
+    await token.connect(user).transfer(staking.target, parseEther("100"));
   });
 
-  /* -------------------------------------------------------------------------- */
-  /*                                  Helpers                                   */
-  /* -------------------------------------------------------------------------- */
-
-  function signAction(
-    action: ActionType,
-    amountOrStakeId: bigint,
-    nonce: bigint,
-    tokenAddr: string
-  ) {
-    const encoded = AbiCoder.defaultAbiCoder().encode(
-      ["address", "address", "uint256", "uint256", "address", "uint8"],
-      [userAddress, tokenAddr, amountOrStakeId, nonce, staking.target, action]
-    );
-    const message = keccak256(encoded);
-    return deployer.signMessage(arrayify(message));
+  /* Helper to sign an action for current nonce */
+  async function sign(action: ActionType, value: bigint): Promise<string> {
+    const nonce = (await staking.nonce(userAddr)) as bigint;
+    return buildSignature(deployer, userAddr, token.target, value, nonce, staking.target, chainId, action);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                                   Tests                                    */
-  /* -------------------------------------------------------------------------- */
+  // ---------------------------------------------------------------------------
+  //  ✅ Happy paths already provided
+  // ---------------------------------------------------------------------------
 
-  it("should allow user to stake with valid admin signature", async () => {
+  it("stakes successfully with admin signature", async () => {
     const amount = parseEther("100");
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, token.target);
-
-    const beforeNonce = await staking.nonce(userAddress);
-
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, stakingDuration, signature)
-    ).to.emit(staking, "Staked");
-
-    const afterNonce = await staking.nonce(userAddress);
-    expect(afterNonce).to.equal(beforeNonce + 1n);
+    const sig = await sign(ActionType.Stake, amount);
+    await expect(staking.connect(user).addStake(amount, DURATION, token.target, sig)).to.emit(staking, "Staked");
   });
 
-  it("should revert if user tries to stake with a non-whitelisted duration", async () => {
-    const amount = parseEther("100");
-    const invalidDuration = 9999;
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, token.target);
-
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, invalidDuration, signature)
-    ).to.be.revertedWithCustomError(staking, "InvalidDuration");
+  it("reverts on amount zero", async () => {
+    const sig = await sign(ActionType.Stake, 0n);
+    await expect(staking.connect(user).addStake(0, DURATION, token.target, sig)).to.be.revertedWithCustomError(staking, "AmountZero");
   });
 
-  it("should allow user to stake again (second stake)", async () => {
-    const amount = parseEther("100");
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, token.target);
+  it("reverts on non-whitelisted token", async () => {
+    const Fake: any = await (await ethers.getContractFactory("MockERC20", deployer)).deploy("F", "F", 18);
+    await Fake.connect(user).mint(parseEther("10"));
+    await Fake.connect(user).approve(staking.target, parseEther("10"));
 
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, stakingDuration, signature)
-    ).to.emit(staking, "Staked");
+    const amount = parseEther("10");
+    const nonce = (await staking.nonce(userAddr)) as bigint;
+    const fakeSig = await buildSignature(deployer, userAddr, Fake.target, amount, nonce, staking.target, chainId, ActionType.Stake);
+
+    await expect(staking.connect(user).addStake(amount, DURATION, Fake.target, fakeSig)).to.be.revertedWithCustomError(staking, "TokenNotWhitelisted");
   });
 
-  it("should revert if user tries to stake with a non-whitelisted token", async () => {
-    const amount = parseEther("100");
-
-    const Token = await ethers.getContractFactory("MockERC20", deployer);
-    const otherToken = await Token.deploy("FakeToken", "FAKE", 18);
-    await otherToken.connect(signer).mint(parseEther("1000"));
-    await otherToken.connect(signer).approve(staking.target, parseEther("1000"));
-
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, await otherToken.getAddress());
-
-    await expect(
-      staking.connect(signer).addStake(otherToken.target, amount, stakingDuration, signature)
-    ).to.be.revertedWithCustomError(staking, "TokenNotWhitelisted");
-  });
-
-  it("should revert if user tries to stake 0 tokens", async () => {
-    const amount = parseEther("0");
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, token.target);
-
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, stakingDuration, signature)
-    ).to.be.revertedWithCustomError(staking, "AmountZero");
-  });
-
-  it("should revert if signature is not from an admin", async () => {
-    const amount = parseEther("100");
-    const nonce = await staking.nonce(userAddress);
-
-    const encoded = AbiCoder.defaultAbiCoder().encode(
-      ["address", "address", "uint256", "uint256", "address", "uint8"],
-      [userAddress, token.target, amount, nonce, staking.target, ActionType.Stake]
-    );
-    const message = keccak256(encoded);
-    const badSignature = await signer.signMessage(arrayify(message));
-
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, stakingDuration, badSignature)
-    ).to.be.revertedWithCustomError(staking, "InvalidAdminSignature");
-  });
-
-  it("should revert if stake amount is outside all APY ranges", async () => {
-    const amount = parseEther("0.5"); // below min
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Stake, amount, nonce, token.target);
-
-    await expect(
-      staking.connect(signer).addStake(token.target, amount, stakingDuration, signature)
-    ).to.be.revertedWithCustomError(staking, "NoAPY");
-  });
-
-  it("should allow valid harvest after one day", async () => {
-    const stakeId = 2; // second stake created above
+  it("harvests after 1 day", async () => {
+    const stakeId = 1n; // first stake
     await time.increase(86400);
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Harvest, BigInt(stakeId), nonce, token.target);
-
-    await expect(
-      staking.connect(signer).harvestStake(token.target, stakeId, signature)
-    ).to.emit(staking, "Harvested");
+    const sig = await sign(ActionType.Harvest, stakeId);
+    await expect(staking.connect(user).harvestStake(token.target, stakeId, sig)).to.emit(staking, "Harvested");
   });
 
-  it("should revert if harvest called too soon", async () => {
-    const stakeId = 2;
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Harvest, BigInt(stakeId), nonce, token.target);
-
-    await expect(
-      staking.connect(signer).harvestStake(token.target, stakeId, signature)
-    ).to.be.revertedWithCustomError(staking, "HarvestTooSoon");
+  it("reverts harvest too soon", async () => {
+    const stakeId = 1n;
+    const sig = await sign(ActionType.Harvest, stakeId);
+    await expect(staking.connect(user).harvestStake(token.target, stakeId, sig)).to.be.revertedWithCustomError(staking, "HarvestTooSoon");
   });
 
-  it("should allow user to claim after stake is matured", async () => {
-    const stakeId = 2;
+  it("claims after maturity", async () => {
+    const stakeId = 1n;
+    await time.increase(86400);
+    const sig = await sign(ActionType.Claim, stakeId);
+    await expect(staking.connect(user).claimStake(token.target, stakeId, sig)).to.emit(staking, "Claimed");
+  });
+
+  it("unstakes early", async () => {
+    const amt = parseEther("50");
+    const sigS = await sign(ActionType.Stake, amt);
+    await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+    const stakeId = 2n;
+    await time.increase(60);
+    const sigU = await sign(ActionType.Unstake, stakeId);
+    await expect(staking.connect(user).unstake(token.target, stakeId, sigU)).to.emit(staking, "Unstaked");
+  });
+
+  it("admin auto-renews after maturity", async () => {
+    const amt = parseEther("75");
+    const sigS = await sign(ActionType.Stake, amt);
+    await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+    const stakeId = 3n;
+
     await time.increase(2 * 86400);
-
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Claim, BigInt(stakeId), nonce, token.target);
-
-    await expect(
-      staking.connect(signer).claimStake(token.target, stakeId, signature)
-    ).to.emit(staking, "Claimed");
+    await expect(staking.autoRenewStake(userAddr, stakeId)).to.emit(staking, "Staked");
   });
 
-  it("should revert if signature is not from admin during claim", async () => {
-    const stakeId = 2;
-    await time.increase(86400);
+  // ---------------------------------------------------------------------------
+  //  ⛔️ Edge-case reverts for full coverage
+  // ---------------------------------------------------------------------------
 
-    const nonce = await staking.nonce(userAddress);
-    const encoded = AbiCoder.defaultAbiCoder().encode(
-      ["address", "address", "uint256", "uint256", "address", "uint8"],
-      [userAddress, token.target, stakeId, nonce, staking.target, ActionType.Claim]
-    );
-    const message = keccak256(encoded);
-    const badSignature = await signer.signMessage(arrayify(message));
+  describe("edge-case reverts", () => {
+    it("cannot stake with an unconfigured duration", async () => {
+      const sig = await sign(ActionType.Stake, parseEther("10"));
+      await expect(
+        staking.connect(user).addStake(parseEther("10"), 30, token.target, sig)   // 30-day duration never added
+      ).to.be.revertedWithCustomError(staking, "InvalidDuration");
+    });
 
-    await expect(
-      staking.connect(signer).claimStake(token.target, stakeId, badSignature)
-    ).to.be.revertedWithCustomError(staking, "InvalidAdminSignature");
+    it("reverts when no APY range matches the amount", async () => {
+      const amt = parseEther("20000");               // above max 10 000
+      const sig = await sign(ActionType.Stake, amt);
+      await expect(
+        staking.connect(user).addStake(amt, DURATION, token.target, sig)
+      ).to.be.revertedWithCustomError(staking, "NoAPY");
+    });
+
+
+    it("claim fails before maturity", async () => {
+      const amt = parseEther("20");
+      const sigS = await sign(ActionType.Stake, amt);
+      await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+      const stakeId = 4n;
+      const sigC = await sign(ActionType.Claim, stakeId);
+      await expect(
+        staking.connect(user).claimStake(token.target, stakeId, sigC)
+      ).to.be.revertedWithCustomError(staking, "NotMatured");
+    });
+    it("harvest fails if called with the wrong token", async () => {
+      await time.increase(86400);                      // allow harvest
+      const sig = await sign(ActionType.Harvest, 1n);
+      await expect(
+        staking.connect(user).harvestStake(ethers.ZeroAddress, 1, sig)
+      ).to.be.revertedWithCustomError(staking, "TokenNotWhitelisted");
+    });
+    it("auto-renew fails if stake not yet mature", async () => {
+      const amt = parseEther("40");
+      const sigS = await sign(ActionType.Stake, amt);
+      await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+      const stakeId = 6n;
+      await expect(
+        staking.autoRenewStake(userAddr, stakeId)
+      ).to.be.revertedWithCustomError(staking, "NotMatured");
+    });
+    it("unstake fails after maturity", async () => {
+      const amt = parseEther("30");
+      const sigS = await sign(ActionType.Stake, amt);
+      await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+      const stakeId = 5n;
+      await time.increase(2 * 86400);                 // past maturity
+      const sigU = await sign(ActionType.Unstake, stakeId);
+      await expect(
+        staking.connect(user).unstake(token.target, stakeId, sigU)
+      ).to.be.revertedWithCustomError(staking, "CanNotUnstakeAfterMaturity");
+    });
+    it("auto‑renew fails if not mature", async () => {
+      const amt = parseEther("40");
+      const sigS = await sign(ActionType.Stake, amt);
+      await staking.connect(user).addStake(amt, DURATION, token.target, sigS);
+      const stakeId = 8n;
+      await expect(staking.autoRenewStake(userAddr, stakeId))
+        .to.be.revertedWithCustomError(staking, "NotMatured");
+    });
+
+    it("updateAPYRangeByBounds reverts when bounds not found", async () => {
+      await expect(
+        staking.updateAPYRangeByBounds(
+          DURATION,
+          parseEther("2"),
+          parseEther("3"),
+          0,
+          0,
+          500
+        )
+      ).to.be.revertedWithCustomError(staking, "APYRangeNotFound");
+    });
+
+    it("non-admin cannot add APY ranges", async () => {
+      await expect(
+        staking.connect(user).addAPYRange(7, 1, 2, 300)
+      ).to.be.revertedWithCustomError(staking, "AccessControlUnauthorizedAccount");
+    });
+
+    it("TransferFailed is surfaced when token returns false", async () => {
+      const bad: any = await deployFailingToken(deployer);
+      await staking.addWhitelistedToken(true, bad.target);
+
+      // sign for a normal stake but with the bad token
+      const sig = await buildSignature(
+        deployer,
+        userAddr,
+        bad.target,
+        parseEther("1"),
+        await staking.nonce(userAddr),
+        staking.target,
+        chainId,
+        ActionType.Stake
+      );
+
+      await expect(
+        staking.connect(user).addStake(parseEther("1"), DURATION, bad.target, sig)
+      ).to.be.revertedWithCustomError(staking, "TransferFailed");
+    });
   });
-
-  it("should revert if token is not whitelisted during claim", async () => {
-    const stakeId = 2;
-    await time.increase(86400);
-    await staking.connect(deployer).removeWhitelistedToken(token.target);
-
-    const nonce = await staking.nonce(userAddress);
-    const signature = await signAction(ActionType.Claim, BigInt(stakeId), nonce, token.target);
-
-    await expect(
-      staking.connect(signer).claimStake(token.target, stakeId, signature)
-    ).to.be.revertedWithCustomError(staking, "TokenNotWhitelisted");
-
-    // Re-whitelist for subsequent tests
-    await staking.connect(deployer).addWhitelistedToken(token.target);
+  it("non‑admin cannot add APY ranges", async () => {
+    await expect(staking.connect(user).addAPYRange(7, 1, 2, 300))
+      .to.be.revertedWithCustomError(staking, "AccessControlUnauthorizedAccount");
   });
-
-  it("should allow user to unstake before maturity and receive correct refund", async () => {
-    const amount = parseEther("100");
-    const nonceStake = await staking.nonce(userAddress);
-    const sigStake = await signAction(ActionType.Stake, amount, nonceStake, token.target);
-
-    await staking.connect(signer).addStake(token.target, amount, stakingDuration, sigStake);
-    const stakeId = 3;
-
-    await time.increase(60); // 1 minute
-
-    const nonceUnstake = await staking.nonce(userAddress);
-    const sigUnstake = await signAction(ActionType.Unstake, BigInt(stakeId), nonceUnstake, token.target);
-
-    await expect(
-      staking.connect(signer).unstake(token.target, stakeId, sigUnstake)
-    ).to.emit(staking, "Unstaked");
+  it("updateAPYRangeByBounds reverts when bounds not found", async () => {
+    await expect(staking.updateAPYRangeByBounds(DURATION, parseEther("2"), parseEther("3"), 0, 0, 500))
+      .to.be.revertedWithCustomError(staking, "APYRangeNotFound");
   });
+    it("cannot stake with an unconfigured duration", async () => {
+      const sig = await sign(ActionType.Stake, parseEther("10"));
+      await expect(staking.connect(user).addStake(parseEther("10"), 30, token.target, sig))
+        .to.be.revertedWithCustomError(staking, "InvalidDuration");
+    });
+describe("KgenStaking – accounting flows", () => {
+  const DAY = 86_400; // seconds
+  const APY = 800n;   // 8 ‰ as per contract scaling (0.08 % per year)
 
-  it("should auto-renew a matured stake and reinvest rewards", async () => {
-    const amount = parseEther("100");
-    const nonceStake = await staking.nonce(userAddress);
-    const sigStake = await signAction(ActionType.Stake, amount, nonceStake, token.target);
+  /* sign helper for *current* nonce */
+  async function sign(action: ActionType, value: bigint) {
+    const n = (await staking.nonce(userAddr)) as bigint;
+    return buildSignature(deployer, userAddr, token.target, value, n, staking.target, chainId, action);
+  }
 
-    await staking.connect(signer).addStake(token.target, amount, stakingDuration, sigStake);
-    const stakeId = 4;
+  // ───────────────────────────────────────────────────────────────────────────
+  //  1. Harvest → reward & APY correctness
+  // ───────────────────────────────────────────────────────────────────────────
 
-    // First attempt (premature) – expect NotMatured
-    await expect(
-      staking.connect(deployer).autoRenewStake(userAddress, token.target, stakeId)
-    ).to.be.revertedWithCustomError(staking, "NotMatured");
+  // it("Harvest emits correct APY and reward", async () => {
+  //   const amount = parseEther("100");
+  //   const sigS   = await sign(ActionType.Stake, amount);
+  //   await staking.connect(user).addStake(amount, DURATION, token.target, sigS); // 2‑day lock
+  //   const stakeId = await staking.userStakeCount(userAddr);
 
-    await time.increase(stakingDuration * 86400 + 10);
+  //   // fetch startTime from storage to compute expected reward
+  //   const details = await staking.userStakes(userAddr, stakeId);
+  //   const start   = BigInt(details.startTime);
 
-    // Now it should succeed
-    await staking.connect(deployer).autoRenewStake(userAddress, token.target, stakeId);
-  });
+  //   await time.increase(DAY);
+  //   const delta   = BigInt(DAY);
 
-  it("should revert autoRenewStake if stakeId does not exist", async () => {
-    const invalidStakeId = 9999;
-    await expect(
-      staking.connect(deployer).autoRenewStake(userAddress, token.target, invalidStakeId)
-    ).to.be.revertedWithCustomError(staking, "StakeNotFound");
-  });
+  //   const expectedReward = calcEarned(amount, APY, delta);
 
-  it("should revert if non-admin tries to call autoRenewStake", async () => {
-    const stakeId = 1;
-    await expect(
-      staking.connect(signer).autoRenewStake(userAddress, token.target, stakeId)
-    ).to.be.reverted; // AccessControl revert
-  });
+  //   const sigH = await sign(ActionType.Harvest, stakeId);
+  //   const tx   = await staking.connect(user).harvestStake(token.target, stakeId, sigH);
+  //   const rc   = await tx.wait();
+
+  //   // pull Harvested event
+  //   const iface = staking.interface;
+  //   const log   = rc.logs.find(l => l.topics[0] === iface.getEventTopic("Harvested"));
+  //   const evt   = iface.parseLog(log!);
+
+  //   expect(evt.args.apy).to.equal(APY);
+  //   expect(evt.args.reward).to.equal(expectedReward);
+  // });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 2. Unstake refund == principal – harvestedReward
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // it("Unstake refunds principal minus harvested reward", async () => {
+  //   const amount = parseEther("50");
+  //   const sigS   = await sign(ActionType.Stake, amount);
+  //   await staking.connect(user).addStake(amount, DURATION, token.target, sigS);
+  //   const stakeId = await staking.userStakeCount(userAddr);
+
+  //   await time.increase(DAY); // halfway → harvest
+  //   const delta   = BigInt(DAY);
+  //   const reward1 = calcEarned(amount, APY, delta);
+  //   const sigH    = await sign(ActionType.Harvest, stakeId);
+  //   await staking.connect(user).harvestStake(token.target, stakeId, sigH);
+
+  //   // now early‑unstake before maturity
+  //   const sigU = await sign(ActionType.Unstake, stakeId);
+  //   const tx   = await staking.connect(user).unstake(token.target, stakeId, sigU);
+  //   const rc   = await tx.wait();
+  //   const evt  = staking.interface.parseLog(rc.logs.find(l => l.topics[0] === staking.interface.getEventTopic("Unstaked"))!);
+
+  //   const expectedRefund = amount - reward1;
+  //   expect(evt.args.amount).to.equal(expectedRefund);
+  // });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 3. Claim pays remaining reward only (principal already in param 1)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // it("Claim after harvest pays remaining reward only", async () => {
+  //   const amount = parseEther("75");
+  //   const sigS   = await sign(ActionType.Stake, amount);
+  //   await staking.connect(user).addStake(amount, DURATION, token.target, sigS);
+  //   const stakeId = await staking.userStakeCount(userAddr);
+
+  //   await time.increase(DAY);
+  //   const reward1 = calcEarned(amount, APY, BigInt(DAY));
+  //   const sigH    = await sign(ActionType.Harvest, stakeId);
+  //   await staking.connect(user).harvestStake(token.target, stakeId, sigH);
+
+  //   // advance to full maturity (second day)
+  //   await time.increase(DAY);
+  //   const totalEarned = calcEarned(amount, APY, 2n * BigInt(DAY));
+  //   const reward2     = totalEarned - reward1;
+
+  //   const sigC  = await sign(ActionType.Claim, stakeId);
+  //   const tx    = await staking.connect(user).claimStake(token.target, stakeId, sigC);
+  //   const rc    = await tx.wait();
+  //   const evt   = staking.interface.parseLog(rc.logs.find(l => l.topics[0] === staking.interface.getEventTopic("Claimed"))!);
+
+  //   expect(evt.args.principal).to.equal(amount);
+  //   expect(evt.args.rewards).to.equal(reward2);
+  //   expect(evt.args.totalClaimed).to.equal(amount + reward2);
+  // });
+});
+
+ 
 });

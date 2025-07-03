@@ -3,6 +3,7 @@ import * as dotenv from "dotenv";
 import "hardhat-tracer";
 import "hardhat-deploy";
 // import "@nomiclabs/hardhat-etherscan";
+import "hardhat-gas-reporter";
 import "hardhat-storage-layout";
 import "hardhat-storage-layout-changes";
 import { HttpNetworkUserConfig } from "hardhat/types";
