@@ -41,10 +41,6 @@ contract rKGEN is
     event AccountUnfrozen(address indexed account);
 
     // Custom errors for better gas efficiency and consistency
-    error AlreadyExists();
-    error NotTreasuryAddress();
-    error NotWhitelistSender();
-    error NotWhitelistReceiver();
     error OnlyAdmin();
     error NotAdmin();
     error CannotDeleteTreasuryAddress();
@@ -66,8 +62,8 @@ contract rKGEN is
     error NotWhitelistedSender();
     error AlreadyWhitelistedReceiver();
     error NotWhitelistedReceiver();
-    error CannotTransferToSelf();
     error AccountIsFrozen();
+    error CannotTransferToSelf();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -120,7 +116,6 @@ contract rKGEN is
      * @dev Modifier to check whitelist status
      */
     modifier whitelistedTransfer(address from, address to) {
-        if (to == from) revert CannotTransferToSelf();
         if (!hasRole(WHITELIST_SENDER_ROLE, from) && !hasRole(WHITELIST_RECEIVER_ROLE, to)) {
             revert InvalidReceiverOrSender();
         }
@@ -141,6 +136,7 @@ contract rKGEN is
         whitelistedTransfer(_msgSender(), to)
         returns (bool) 
     {
+        if (_msgSender() == to) revert CannotTransferToSelf();
         return super.transfer(to, amount);
     }
 
@@ -158,6 +154,7 @@ contract rKGEN is
         whitelistedTransfer(from, to)
         returns (bool)
     {
+        if (from == to) revert CannotTransferToSelf();
         return super.transferFrom(from, to, amount);
     }
 
@@ -170,6 +167,7 @@ contract rKGEN is
         onlyRole(MINTER_ROLE)
         validAmount(amount)
         validAddress(to)
+        whitelistedTransfer(_msgSender(), to)
     {
 
         _mint(to, amount);
@@ -369,6 +367,12 @@ contract rKGEN is
         if (!hasRole(WHITELIST_SENDER_ROLE, newAddress)) {
             _grantRole(WHITELIST_SENDER_ROLE, newAddress);
             emit AddedSenderAddress("New Sender Address Whitelisted", newAddress);
+        }
+        
+        // If not already a whitelist receiver, add as one
+        if (!hasRole(WHITELIST_RECEIVER_ROLE, newAddress)) {
+            _grantRole(WHITELIST_RECEIVER_ROLE, newAddress);
+            emit AddedReceiverAddress("New Receiver Address Whitelisted", newAddress);
         }
         
         emit AddedTreasuryAddress("New Treasury Address Added", newAddress);

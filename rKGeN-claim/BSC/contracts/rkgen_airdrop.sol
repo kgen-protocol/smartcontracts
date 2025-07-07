@@ -5,11 +5,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "./ERC2771ContextUpgradeable/ERC2771ContextUpgradable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import "hardhat/console.sol";
 
 contract RKGENAirdrop is
     Initializable,
@@ -19,7 +18,7 @@ contract RKGENAirdrop is
     EIP712Upgradeable
 {
     using ECDSA for bytes32;
-
+    using SafeERC20 for IERC20;
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     address public rewardSigner;
@@ -29,13 +28,18 @@ contract RKGENAirdrop is
     // user => token => nonce (per-user, per-token nonce tracking like Move implementation)
     mapping(address => mapping(address => uint256)) public nonces;
     mapping(address => bool) public trustedForwarder;
+    mapping(address => bool) public whitelistedTokens;
 
+    modifier invalidAddressCheck(address _address) {
+        if (_address == address(0)) revert InvalidAddress();
+        _;
+    }
 
-    
     // EIP-712 Type Hash for Claim
-    bytes32 public constant CLAIM_TYPEHASH = keccak256(
-        "Claim(address user,address token,uint256 amount,uint256 nonce,uint256 chainId)"
-    );
+    bytes32 public constant CLAIM_TYPEHASH =
+        keccak256(
+            "Claim(address user,address token,uint256 amount,uint256 nonce,uint256 chainId)"
+        );
 
     // Events for better tracking and debugging
     event Claimed(
@@ -52,7 +56,6 @@ contract RKGENAirdrop is
         address indexed token,
         uint256 amount
     );
-    event SignatureVerified(bytes signature, bool result);
 
     struct SignedMessage {
         address user;
@@ -70,24 +73,31 @@ contract RKGENAirdrop is
     error NoNominatedAdmin();
     error AlreadyExists();
     error NotAdmin();
+    error NotWhitelistedToken();
+    error InvalidAddress();
+
+    constructor() {
+        // _disableInitializers();
+    }
 
     function initialize(
-        address admin,
-        address signer,
+        string memory _name,
         uint256 _chainId
     ) external initializer {
         __AccessControl_init();
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(ADMIN_ROLE, admin);
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(ADMIN_ROLE, _msgSender());
         __ReentrancyGuard_init();
-        rewardSigner = signer;
+        rewardSigner = _msgSender();
         chainId = _chainId;
-        
-        // Initialize EIP712Upgradeable
-        __EIP712_init("RKGENAirdrop", "1");
+        __EIP712_init(_name, "1");
     }
 
-    function updateSigner(address newSigner) external onlyRole(ADMIN_ROLE) {
+    function updateSigner(address newSigner)
+        external
+        onlyRole(ADMIN_ROLE)
+        invalidAddressCheck(newSigner)
+    {
         if (newSigner == address(0)) revert InvalidSigner();
         if (rewardSigner == newSigner) revert AlreadyExists();
 
@@ -96,8 +106,11 @@ contract RKGENAirdrop is
     }
 
     // Admin transfer mechanism similar to Move implementation
-    function nominateAdmin(address newAdmin) external onlyRole(ADMIN_ROLE) {
-        if (newAdmin == address(0)) revert InvalidAdmin();
+    function nominateAdmin(address newAdmin)
+        external
+        onlyRole(ADMIN_ROLE)
+        invalidAddressCheck(newAdmin)
+    {
         if (newAdmin == msg.sender) revert AlreadyExists();
 
         nominatedAdmin = newAdmin;
@@ -120,8 +133,8 @@ contract RKGENAirdrop is
     function withdrawTokens(
         address token,
         uint256 amount
-    ) external onlyRole(ADMIN_ROLE) {
-        IERC20(token).transfer(msg.sender, amount);
+    ) external onlyRole(ADMIN_ROLE) invalidAddressCheck(token) {
+        IERC20(token).safeTransfer(msg.sender, amount);
         emit TokensWithdrawn(msg.sender, token, amount);
     }
 
@@ -142,19 +155,20 @@ contract RKGENAirdrop is
         uint256 amount,
         uint256 nonce,
         uint256 _chainId
-    ) public view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(
-                abi.encode(
-                    CLAIM_TYPEHASH,
-                    user,
-                    token,
-                    amount,
-                    nonce,
-                    _chainId
+    ) internal view returns (bytes32) {
+        return
+            _hashTypedDataV4(
+                keccak256(
+                    abi.encode(
+                        CLAIM_TYPEHASH,
+                        user,
+                        token,
+                        amount,
+                        nonce,
+                        _chainId
+                    )
                 )
-            )
-        );
+            );
     }
 
     /**
@@ -170,8 +184,6 @@ contract RKGENAirdrop is
     ) public view returns (bool) {
         bytes32 hash = _hashClaim(user, token, amount, nonce, _chainId);
         address recovered = ECDSA.recover(hash, signature);
-        console.log("Recovered: %s", recovered);
-        console.log("Reward signer: %s", rewardSigner);
         return recovered == rewardSigner;
     }
 
@@ -181,7 +193,9 @@ contract RKGENAirdrop is
         uint256 amount,
         uint256 nonce,
         bytes calldata signature
-    ) external nonReentrant {
+    ) external nonReentrant invalidAddressCheck(user) {
+        if (!whitelistedTokens[token]) revert NotWhitelistedToken();
+
         // Check if nonce matches current nonce for this user and token
         if (nonce != nonces[user][token]) revert InvalidNonce();
 
@@ -194,8 +208,6 @@ contract RKGENAirdrop is
             chainId,
             signature
         );
-        
-        emit SignatureVerified(signature, isValid);
 
         if (!isValid) revert InvalidSignature();
 
@@ -203,14 +215,14 @@ contract RKGENAirdrop is
         nonces[user][token] += 1;
 
         // Transfer tokens to claimer
-        IERC20(token).transfer(user, amount);
+        IERC20(token).safeTransfer(user, amount);
         emit Claimed(user, token, amount, nonce);
     }
 
     function setTrustedForwarder(
         address _trustedForwarder,
         bool _isTrusted
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) invalidAddressCheck(_trustedForwarder) {
         trustedForwarder[_trustedForwarder] = _isTrusted;
     }
 
@@ -257,11 +269,19 @@ contract RKGENAirdrop is
         return rewardSigner;
     }
 
-    // View function to get domain separator
+    function whitelistToken(address token)
+        external
+        onlyRole(ADMIN_ROLE)
+        invalidAddressCheck(token)
+    {
+        whitelistedTokens[token] = true;
+    }
+
+    function isWhitelistedToken(address token) external view returns (bool) {
+        return whitelistedTokens[token];
+    }
+
     function getDomainSeparator() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
 }
-
-
-

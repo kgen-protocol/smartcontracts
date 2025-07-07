@@ -8,11 +8,12 @@ describe("rKGEN Token", function () {
     let addr1: Signer;
     let addr2: Signer;
     let addr3: Signer;
+    let addr4: Signer;
     let ownerAddress: string;
     let addr1Address: string;
     let addr2Address: string;
     let addr3Address: string;
-
+    let addr4Address: string;
     const MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
     const BURN_VAULT_ROLE = ethers.keccak256(ethers.toUtf8Bytes("BURN_VAULT_ROLE"));
     const TREASURY_ROLE = ethers.keccak256(ethers.toUtf8Bytes("TREASURY_ROLE"));
@@ -22,18 +23,20 @@ describe("rKGEN Token", function () {
  
 
     beforeEach(async function () {
-        [owner, addr1, addr2, addr3] = await ethers.getSigners();
+        [owner, addr1, addr2, addr3, addr4] = await ethers.getSigners();
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
         addr2Address = await addr2.getAddress();
         addr3Address = await addr3.getAddress();
-
+        addr4Address = await addr4.getAddress();
         const rKGENFactory = await ethers.getContractFactory("rKGEN");
         rKGEN = await upgrades.deployProxy(rKGENFactory, [ownerAddress], {
             initializer: 'initialize',
             kind: 'transparent'
         });
         await rKGEN.waitForDeployment();
+        await rKGEN.addWhitelistReceiver(ownerAddress);
+        await rKGEN.mint(ownerAddress, ethers.parseUnits("1000000000", 8));
     });
 
     describe("Deployment", function () {
@@ -282,8 +285,8 @@ describe("rKGEN Token", function () {
 
         it("Should not allow minting to non-whitelisted address", async function () {
             const mintAmount = ethers.parseUnits("1000", 8);
-            await expect(rKGEN.mint(addr1Address, mintAmount))
-                .to.be.revertedWithCustomError(rKGEN, "NotWhitelistedReceiver");
+            await expect(rKGEN.mint(addr4Address, mintAmount))
+                .to.be.revertedWithCustomError(rKGEN, "InvalidReceiverOrSender");
         });
 
         it("Should not allow non-minter to mint", async function () {
