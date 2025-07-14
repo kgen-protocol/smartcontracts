@@ -63,7 +63,7 @@ module RevenueContractV2::RevenueContractV2 {
 
     public entry fun initialize(account: &signer){
         assert!(signer::address_of(account) == DEPLOYER_ADDRESS, ENOT_DEPLOYER);
-        let (resource_address, signer_capability) = account::create_resource_account(account, b"vault_v1");
+        let (resource_address, signer_capability) = account::create_resource_account(account, b"vault");
         assert!(!exists<Vault>(signer::address_of(&resource_address)), EVAULT_ALREADY_CREATED);
         let admins = vector::empty<address>();
         vector::push_back(&mut admins, signer::address_of(account)); 
