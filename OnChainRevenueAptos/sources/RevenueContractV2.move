@@ -30,11 +30,18 @@ module RevenueContractV2::RevenueContractV2 {
         token:address,
         amount:u64
     }
-
+    #[event]
+    /// Emitted when deposit fungible asset to contract 
+    struct DepositNativeAsset has drop ,store {
+        sender:address,
+        amount:u64
+    }
    struct RevenueEventHolder has key {
         deposit_fungible: event::EventHandle<DepositFungibleAsset>,
     }
-
+   struct RevenueEventHolderV1 has key {
+        deposit_native: event::EventHandle<DepositNativeAsset>,
+    }
     struct Vault has key {
         admins_list: vector<address>,
         signer_cap: account::SignerCapability,
@@ -48,10 +55,15 @@ module RevenueContractV2::RevenueContractV2 {
             deposit_fungible: account::new_event_handle<DepositFungibleAsset>(account),
         });
     }
+  public entry fun initializeV2(account: &signer)  {
+         move_to(account, RevenueEventHolderV1 {
+            deposit_native: account::new_event_handle<DepositNativeAsset>(account),
+        });
+    }
 
     public entry fun initialize(account: &signer){
         assert!(signer::address_of(account) == DEPLOYER_ADDRESS, ENOT_DEPLOYER);
-        let (resource_address, signer_capability) = account::create_resource_account(account, b"vault");
+        let (resource_address, signer_capability) = account::create_resource_account(account, b"vault_v1");
         assert!(!exists<Vault>(signer::address_of(&resource_address)), EVAULT_ALREADY_CREATED);
         let admins = vector::empty<address>();
         vector::push_back(&mut admins, signer::address_of(account)); 
@@ -64,13 +76,21 @@ module RevenueContractV2::RevenueContractV2 {
             signer_cap : signer_capability
         });
     }
-    public entry fun deposit_native(account: &signer, amount: u64) acquires Vault {
+    public entry fun deposit_native(account: &signer, amount: u64) acquires Vault,RevenueEventHolderV1 {
         let vault_address = get_vault_address();
         assert!(exists<Vault>(vault_address), EVAULT_NOT_CREATED);
         assert!(amount > 0, EZERO_TOKEN_DEPOSIT);
         let vault = borrow_global_mut<Vault>(vault_address);
         let coins = coin::withdraw(account, amount);
         coin::merge(&mut vault.nativeCoins, coins); // Store APT inside Vault struct
+        let revenue_event_holder = borrow_global_mut<RevenueEventHolderV1>(@RevenueContractV2);
+        event::emit_event<DepositNativeAsset>(
+            &mut revenue_event_holder.deposit_native,
+            DepositNativeAsset{
+                sender : signer::address_of(account),
+                amount
+            }
+        )
     }
 
     public entry fun add_allowed_withdrawer(account: &signer,withdrawer: address) acquires Vault {
@@ -114,7 +134,7 @@ module RevenueContractV2::RevenueContractV2 {
         let (found, i) = vector::index_of(&vault.admins_list, &addr);
         assert!(found, EADMIN_NOT_FOUND);
         vector::remove(&mut vault.admins_list, i);
-            
+      
         
     }
 
