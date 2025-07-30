@@ -1,0 +1,18 @@
+[package]
+name = "Kgen"
+version = "1.0.0"
+authors = []
+
+[addresses]
+admin = "f4e5ae9166964f6811636faa4e82b883f51804e1bc83dc1c1ebb7aad964287bf"
+burn_vault= "1944befdc823a4052163fa96eece99cfef2d060d6b9c23e749d11d5326bb9884"
+kgen = "0x3945980e3dbf464727d5df24ac26ee3f220d68cc0491981299b49a8291546c0f"
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dev-dependencies]
