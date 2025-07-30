@@ -44,7 +44,7 @@
       transfer_ref: TransferRef,
       last_transfer: u64,
    }
-   const storageContract: address = @0xecf431e33e96c6f3769e181713f59c758d669b9a5b0e1856cd9f94850202af02;
+   const STORAGE_CONTRACT: address = @0xecf431e33e96c6f3769e181713f59c758d669b9a5b0e1856cd9f94850202af02;
       #[event]
     struct PurcheseNftEvent   has drop, store {
         cp: address,
@@ -162,7 +162,7 @@ public entry fun transfer(
       utr:String,
    ) acquires SemiFungibleToken { 
       let to = signer::address_of(buyer);
-      transfer_v1(cp, token, storageContract, quantity);
+      transfer_v1(cp, token, STORAGE_CONTRACT, quantity);
       let fa_data = object::address_to_object<Metadata>(paytoken); 
       let sender_store = primary_fungible_store::primary_store(signer::address_of(buyer), fa_data);
       let withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(buyer, sender_store, amount);
