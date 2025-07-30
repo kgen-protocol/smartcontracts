@@ -22,7 +22,3 @@ subdir = "aptos-move/framework/aptos-stdlib"
 git = "https://github.com/aptos-labs/aptos-core.git"
 rev = "mainnet"
 subdir = "aptos-move/framework/aptos-token-objects"
-[dependencies.distributor_V2_market]
-git = "https://github.com/kgen-protocol/smartcontracts"
-rev = "a971d6fc010f0fe650fc4f8d3008258488d7fd03"
-subdir = 'rKGEN-Core-SC/rKGEN'
