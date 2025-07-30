@@ -1,0 +1,28 @@
+[package]
+name = "distributor_V2_market"
+version = "1.0.0"
+authors = []
+
+[addresses]
+# Your module’s publishing address (fill at publish time or via CLI profile)
+distributor_addr = "0x19e0e375bb9c323829c103bd0c5f7fe548891d2c30946f01dace9216988c33e3"
+
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.AptosStdlib]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-stdlib"
+
+[dependencies.AptosTokenObjects]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-token-objects"
+[dependencies.distributor_V2_market]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "a971d6fc010f0fe650fc4f8d3008258488d7fd03"
+subdir = 'rKGEN-Core-SC/rKGEN'
