@@ -1,11 +1,11 @@
 [package]
-name = "distributor_V3_market"
+name = "fa_coin_V8"
 version = "1.0.0"
 authors = []
 
 [addresses]
 # Your module’s publishing address (fill at publish time or via CLI profile)
-distributor_addr = "0x19e0e375bb9c323829c103bd0c5f7fe548891d2c30946f01dace9216988c33e3"
+FACoin = "0xbe11edfafc1198aeecc23abdc059d839ed022a94b3df5f402ef955f657167f7f"
 
 
 [dependencies.AptosFramework]
