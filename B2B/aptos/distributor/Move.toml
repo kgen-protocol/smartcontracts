@@ -5,7 +5,7 @@ authors = []
 
 [addresses]
 # Your module’s publishing address (fill at publish time or via CLI profile)
-distributorMarket = "0xbe11edfafc1198aeecc23abdc059d839ed022a94b3df5f402ef955f657167f7f"
+distributorMarket = "0x5d2cc214c609a06c0128ce3e2b34476874cc239b3d12cb2c7972f4041a1e0245"
 
 
 [dependencies.AptosFramework]
