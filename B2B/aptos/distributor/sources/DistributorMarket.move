@@ -1,7 +1,7 @@
 /// A module that allows creating and managing multiple fungible assets.
 /// Each asset is identified by its symbol and can be minted, transferred, and burned independently.
 /// Includes buyer role management for NFT purchases.
-module FACoin::fa_coin_V8{
+module distributorMarket::distributorMarket{
     use aptos_framework::fungible_asset::{Self, MintRef, TransferRef, BurnRef, Metadata, FungibleAsset};
     use aptos_framework::object::{Self, Object};
     use aptos_framework::primary_fungible_store;
@@ -30,7 +30,7 @@ module FACoin::fa_coin_V8{
     /// Buyer not found in the list
     const EBUYER_NOT_FOUND: u64 = 8;
     const ENOT_ADMIN : u64 = 9;
-    const STORAGE_CONTRACT = ""
+    const STORAGE_CONTRACT:address = @0x58582549492273975be7790f5639adf18123e2c0c2743cefd51f16cc1137e443;
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     /// Hold refs to control the minting, transfer and burning of fungible assets.
     struct ManagedFungibleAsset has key {
@@ -97,7 +97,7 @@ module FACoin::fa_coin_V8{
     /// Get the vault address (using module address)
 
     fun get_vault_address():address{
-        account::create_resource_address(&@FACoin, b"vault")
+        account::create_resource_address(&@distributorMarket, b"vault")
     }
 
     /// Create a new fungible asset with specified parameters
@@ -108,9 +108,9 @@ module FACoin::fa_coin_V8{
         decimals: u8,
         icon_uri: String,
         project_uri: String
-    ) {
+    ) acquires Vault {
         let symbol_bytes = *string::bytes(&asset_symbol);
-        let asset_address = object::create_object_address(&@FACoin, symbol_bytes);
+        let asset_address = object::create_object_address(&@distributorMarket, symbol_bytes);
         assert!(is_admin(signer::address_of(admin)),ENOT_ADMIN);
         // Check if asset already exists
         assert!(!object::object_exists<Metadata>(asset_address), error::already_exists(EASSET_EXISTS));
@@ -153,7 +153,7 @@ module FACoin::fa_coin_V8{
     /// Return the address of the managed fungible asset based on symbol.
     public fun get_metadata(asset_symbol: String): Object<Metadata> {
         let asset_symbol_bytes = *string::bytes(&asset_symbol);
-        let asset_address = object::create_object_address(&@FACoin, asset_symbol_bytes);
+        let asset_address = object::create_object_address(&@distributorMarket, asset_symbol_bytes);
         object::address_to_object<Metadata>(asset_address)
     }
 
@@ -161,7 +161,7 @@ module FACoin::fa_coin_V8{
     /// Check if a fungible asset exists for given symbol
     public fun asset_exists(asset_symbol: String): bool {
         let asset_symbol_bytes = *string::bytes(&asset_symbol);
-        let asset_address = object::create_object_address(&@FACoin, asset_symbol_bytes);
+        let asset_address = object::create_object_address(&@distributorMarket, asset_symbol_bytes);
         object::object_exists<Metadata>(asset_address)
     }
 
