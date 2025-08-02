@@ -1,0 +1,22 @@
+[package]
+name = "rkgen"
+version = "1.0.0"
+authors = []
+
+[addresses]
+rkgen = "0x95ced0aed32629ce375aedc645104a23b42bd6b014318f0a84c8a8c5f44abad9"
+rKGenAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.rKGEN]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "a971d6fc010f0fe650fc4f8d3008258488d7fd03"
+subdir = 'rKGEN-Core-SC/rKGEN'
+
+[dev-dependencies]
