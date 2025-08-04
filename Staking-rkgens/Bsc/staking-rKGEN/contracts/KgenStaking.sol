@@ -42,6 +42,7 @@ contract KgenStaking is
         uint256 duration,
         uint256 apy
     );
+
     event Harvested(
         address indexed user,
         uint256 indexed stakeId,
@@ -49,6 +50,7 @@ contract KgenStaking is
         uint256 timestamp,
         uint256 apy
     );
+    
     event Claimed(
         address indexed user,
         uint256 indexed stakeId,

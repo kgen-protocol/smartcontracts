@@ -1,0 +1,1535 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for contracts/rKGEN.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">contracts/</a> rKGEN.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">97.75% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>87/89</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">75.63% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>121/160</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">96.88% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>31/32</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">97.98% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>97/99</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+486
+487
+488
+489
+490
+491</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-yes">73×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">108×</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">290×</span>
+<span class="cline-any cline-yes">285×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">33×</span>
+<span class="cline-any cline-yes">31×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">94×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">91×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">78×</span>
+<span class="cline-any cline-yes">78×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22×</span>
+<span class="cline-any cline-yes">22×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">99×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">98×</span>
+<span class="cline-any cline-yes">98×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">902×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">900×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">900×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+&nbsp;
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./ERC2771ContextUpgradeable/ERC2771ContextUpgradable.sol";
+&nbsp;
+contract rKGEN is 
+    Initializable,
+    ERC20Upgradeable,
+    AccessControlEnumerableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    ERC2771ContextUpgradeable
+{
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant BURN_VAULT_ROLE = keccak256("BURN_VAULT_ROLE");
+    bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
+    bytes32 public constant WHITELIST_SENDER_ROLE = keccak256("WHITELIST_SENDER_ROLE");
+    bytes32 public constant WHITELIST_RECEIVER_ROLE = keccak256("WHITELIST_RECEIVER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+&nbsp;
+    address public nominatedAdmin;
+    mapping(address =&gt; bool) public frozenAccounts;
+    mapping(address =&gt; bool) public trustedForwarder;
+&nbsp;
+    
+    event MintedToTreasury(address indexed treasury, uint256 amount);
+    event UpdatedBurnVault(string role, address indexed updatedAddress);
+    event UpdatedAdmin(string role, address indexed addedAdmin);
+    event NominatedAdminEvent(string role, address indexed nominatedAdmin);
+    event UpdatedMinter(string role, address indexed addedUser);
+    event AddedTreasuryAddress(string msg, address indexed addedAddress);
+    event RemovedTreasuryAddress(string msg, address indexed removedAddress);
+    event AddedSenderAddress(string msg, address indexed addedAddress);
+    event RemovedSenderAddress(string msg, address indexed removedAddress);
+    event AddedReceiverAddress(string msg, address indexed addedAddress);
+    event RemovedReceiverAddress(string msg, address indexed removedAddress);
+    event AccountFrozen(address indexed account);
+    event AccountUnfrozen(address indexed account);
+&nbsp;
+    // Custom errors for better gas efficiency and consistency
+    error OnlyAdmin();
+    error NotAdmin();
+    error CannotDeleteTreasuryAddress();
+    error InvalidReceiverOrSender();
+    error NotBurnVault();
+    error NotValidAddress();
+    error NotOwner();
+    error NoPending();
+    error InvalidAmount();
+    error CannotNominateSelf();
+    error NotNominated();
+    error NoPendingNomination();
+    error AlreadyMinter();
+    error NotMinter();
+    error AlreadyBurnVault();
+    error AlreadyTreasury();
+    error NotTreasury();
+    error AlreadyWhitelistedSender();
+    error NotWhitelistedSender();
+    error AlreadyWhitelistedReceiver();
+    error NotWhitelistedReceiver();
+    error AccountIsFrozen();
+    error CannotTransferToSelf();
+&nbsp;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+&nbsp;
+    function initialize(address initialAdmin) public initializer {
+        __ERC20_init("rKGEN", "rKGEN");
+        __AccessControlEnumerable_init();
+        __ReentrancyGuard_init();
+&nbsp;
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
+        _grantRole(MINTER_ROLE, initialAdmin);
+        _grantRole(BURN_VAULT_ROLE, initialAdmin);
+        _grantRole(UPGRADER_ROLE, initialAdmin);
+        
+        // Mint initial supply to the admin
+        // _mint(initialAdmin, 400_000_000 * 10**decimals());
+    }
+&nbsp;
+    function decimals() public pure override returns (uint8) {
+        return 8;
+    }
+&nbsp;
+    /**
+     * @dev Modifier to check if the amount is valid
+     */
+    modifier validAmount(uint256 amount) {
+        if (amount == 0) revert InvalidAmount();
+        _;
+    }
+&nbsp;
+    /**
+     * @dev Modifier to check if the address is valid
+     */
+    modifier validAddress(address addr) {
+        if (addr == address(0)) revert NotValidAddress();
+        _;
+    }
+&nbsp;
+    /**
+     * @dev Modifier to check if the account is not frozen
+     */
+    modifier notFrozen(address account) {
+        if (frozenAccounts[account]) revert AccountIsFrozen();
+        _;
+    }
+&nbsp;
+    /**
+     * @dev Modifier to check whitelist status
+     */
+    modifier whitelistedTransfer(address from, address to) {
+        if (!hasRole(WHITELIST_SENDER_ROLE, from) &amp;&amp; !hasRole(WHITELIST_RECEIVER_ROLE, to)) {
+            revert InvalidReceiverOrSender();
+        }
+        _;
+    }
+&nbsp;
+    /**
+     * @dev Override transfer function to implement whitelist restrictions
+     */
+    function transfer(address to, uint256 amount) 
+        public 
+        override 
+        <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant
+        validAmount(amount)
+        validAddress(to)
+        notFrozen(_msgSender())
+        notFrozen(to)
+        whitelistedTransfer(_msgSender(), to)
+        returns (bool) 
+    {
+        if (_msgSender() == to) revert CannotTransferToSelf();
+        return super.transfer(to, amount);
+    }
+&nbsp;
+    /**
+     * @dev Override transferFrom function to implement whitelist restrictions
+     */
+    function transferFrom(address from, address to, uint256 amount)
+        public
+        override
+        <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant
+        validAmount(amount)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(to)
+        <span class="missing-if-branch" title="else path not taken" >E</span>notFrozen(from)
+        <span class="missing-if-branch" title="else path not taken" >E</span>notFrozen(to)
+        whitelistedTransfer(from, to)
+        returns (bool)
+    {
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (from == to) revert CannotTransferToSelf();
+<span class="cstat-no" title="statement not covered" >        return super.transferFrom(from, to, amount);</span>
+    }
+&nbsp;
+    /**
+     * @dev Mint tokens to any whitelisted receiver address
+     */
+    function mint(address to, uint256 amount)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant
+        onlyRole(MINTER_ROLE)
+        validAmount(amount)
+        validAddress(to)
+        whitelistedTransfer(_msgSender(), to)
+    {
+&nbsp;
+        _mint(to, amount);
+        emit MintedToTreasury(to, amount);
+    }
+&nbsp;
+    /**
+     * @dev Burn tokens from the burn vault
+     */
+    function burn(address from, uint256 amount)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant
+        onlyRole(BURN_VAULT_ROLE)
+        validAmount(amount)
+        validAddress(from)
+    {
+        _burn(from, amount);
+    }
+&nbsp;
+    /**
+     * @dev Freeze an account
+     */
+    function freezeAccount(address account)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        validAddress(account)
+    {
+        frozenAccounts[account] = true;
+        emit AccountFrozen(account);
+    }
+&nbsp;
+    /**
+     * @dev Unfreeze an account
+     */
+    function unfreezeAccount(address account)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        validAddress(account)
+    {
+        frozenAccounts[account] = false;
+        emit AccountUnfrozen(account);
+    }
+&nbsp;
+    /**
+     * @dev Nominate a new admin
+     */
+    function nominateAdmin(address newAdmin)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newAdmin)
+    {
+        if (newAdmin == _msgSender()) revert CannotNominateSelf();
+        nominatedAdmin = newAdmin;
+        emit NominatedAdminEvent("New Admin Nominated, Now new admin need to accept the role", newAdmin);
+    }
+&nbsp;
+    /**
+     * @dev Accept admin role
+     */
+    function acceptAdminRole()
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(_msgSender())
+    {
+        if (nominatedAdmin != _msgSender()) revert NotNominated();
+        
+        // Revoke the current admin role - improved role management
+        uint256 adminCount = getRoleMemberCount(DEFAULT_ADMIN_ROLE);
+        for (uint256 i = 0; i &lt; adminCount; i++) {
+            address oldAdmin = getRoleMember(DEFAULT_ADMIN_ROLE, i);
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (oldAdmin != address(0)) {
+                _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
+            }
+        }
+        
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        nominatedAdmin = address(0);
+        emit UpdatedAdmin("New Admin Added", _msgSender());
+    }
+&nbsp;
+    /**
+     * @dev Add minter address
+     */
+    function addMinter(address newMinter)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newMinter)
+    {
+        if (hasRole(MINTER_ROLE, newMinter)) revert AlreadyMinter();
+        
+        _grantRole(MINTER_ROLE, newMinter);
+        emit UpdatedMinter("New Minter Added", newMinter);
+    }
+&nbsp;
+    /**
+     * @dev Remove minter address
+     */
+    function removeMinter(address minterAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(minterAddress)
+    {
+        if (!hasRole(MINTER_ROLE, minterAddress)) revert NotMinter();
+        
+        _revokeRole(MINTER_ROLE, minterAddress);
+        emit UpdatedMinter("Minter Removed", minterAddress);
+    }
+&nbsp;
+    /**
+     * @dev Add burn vault address
+     */
+    function addBurnVault(address newBurnVault)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newBurnVault)
+    {
+        if (hasRole(BURN_VAULT_ROLE, newBurnVault)) revert AlreadyBurnVault();
+        
+        _grantRole(BURN_VAULT_ROLE, newBurnVault);
+        emit UpdatedBurnVault("New Burn Vault Added", newBurnVault);
+    }
+&nbsp;
+    /**
+     * @dev Remove burn vault address
+     */
+    function removeBurnVault(address burnVaultAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(burnVaultAddress)
+    {
+        if (!hasRole(BURN_VAULT_ROLE, burnVaultAddress)) revert NotBurnVault();
+        
+        _revokeRole(BURN_VAULT_ROLE, burnVaultAddress);
+        emit UpdatedBurnVault("Burn Vault Removed", burnVaultAddress);
+    }
+&nbsp;
+    /**
+     * @dev Update minter address (legacy function for backward compatibility)
+     * @notice This function replaces all existing minters with a single new minter
+     */
+    function updateMinter(address newMinter)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newMinter)
+    {
+        if (hasRole(MINTER_ROLE, newMinter)) revert AlreadyMinter();
+        
+        // Revoke all existing minter roles
+        uint256 minterCount = getRoleMemberCount(MINTER_ROLE);
+        for (uint256 i = 0; i &lt; minterCount; i++) {
+            address oldMinter = getRoleMember(MINTER_ROLE, i);
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (oldMinter != address(0)) {
+                _revokeRole(MINTER_ROLE, oldMinter);
+            }
+        }
+        
+        _grantRole(MINTER_ROLE, newMinter);
+        emit UpdatedMinter("Minter Updated (Legacy)", newMinter);
+    }
+&nbsp;
+    /**
+     * @dev Update burn vault address (legacy function for backward compatibility)
+     * @notice This function replaces all existing burn vaults with a single new burn vault
+     */
+    function updateBurnVault(address newBurnVault)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newBurnVault)
+    {
+        if (hasRole(BURN_VAULT_ROLE, newBurnVault)) revert AlreadyBurnVault();
+        
+        // Revoke all existing burn vault roles
+        uint256 burnVaultCount = getRoleMemberCount(BURN_VAULT_ROLE);
+        for (uint256 i = 0; i &lt; burnVaultCount; i++) {
+            address oldBurnVault = getRoleMember(BURN_VAULT_ROLE, i);
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (oldBurnVault != address(0)) {
+                _revokeRole(BURN_VAULT_ROLE, oldBurnVault);
+            }
+        }
+        
+        _grantRole(BURN_VAULT_ROLE, newBurnVault);
+        emit UpdatedBurnVault("Burn Vault Updated (Legacy)", newBurnVault);
+    }
+&nbsp;
+    /**
+     * @dev Add treasury address
+     */
+    function addTreasuryAddress(address newAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newAddress)
+    {
+        if (hasRole(TREASURY_ROLE, newAddress)) revert AlreadyTreasury();
+        
+        _grantRole(TREASURY_ROLE, newAddress);
+        
+        // If not already a whitelist sender, add as one
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (!hasRole(WHITELIST_SENDER_ROLE, newAddress)) {
+            _grantRole(WHITELIST_SENDER_ROLE, newAddress);
+            emit AddedSenderAddress("New Sender Address Whitelisted", newAddress);
+        }
+        
+        // If not already a whitelist receiver, add as one
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (!hasRole(WHITELIST_RECEIVER_ROLE, newAddress)) {
+            _grantRole(WHITELIST_RECEIVER_ROLE, newAddress);
+            emit AddedReceiverAddress("New Receiver Address Whitelisted", newAddress);
+        }
+        
+        emit AddedTreasuryAddress("New Treasury Address Added", newAddress);
+    }
+&nbsp;
+    /**
+     * @dev Remove treasury address
+     */
+    function removeTreasuryAddress(address treasuryAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(treasuryAddress)
+    {
+        if (!hasRole(TREASURY_ROLE, treasuryAddress)) revert NotTreasury();
+        
+        _revokeRole(TREASURY_ROLE, treasuryAddress);
+        emit RemovedTreasuryAddress("Treasury Address Removed", treasuryAddress);
+    }
+&nbsp;
+    /**
+     * @dev Add whitelist sender
+     */
+    function addWhitelistSender(address newAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newAddress)
+    {
+        if (hasRole(WHITELIST_SENDER_ROLE, newAddress)) revert AlreadyWhitelistedSender();
+        
+        _grantRole(WHITELIST_SENDER_ROLE, newAddress);
+        emit AddedSenderAddress("New Sender Address Whitelisted", newAddress);
+    }
+&nbsp;
+    /**
+     * @dev Remove whitelist sender
+     */
+    function removeWhitelistSender(address senderAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(senderAddress)
+    {
+        if (!hasRole(WHITELIST_SENDER_ROLE, senderAddress)) revert NotWhitelistedSender();
+        if (hasRole(TREASURY_ROLE, senderAddress)) revert CannotDeleteTreasuryAddress();
+        
+        _revokeRole(WHITELIST_SENDER_ROLE, senderAddress);
+        emit RemovedSenderAddress("Sender Address Removed From Whitelist", senderAddress);
+    }
+&nbsp;
+    /**
+     * @dev Add whitelist receiver
+     */
+    function addWhitelistReceiver(address newAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(newAddress)
+    {
+        if (hasRole(WHITELIST_RECEIVER_ROLE, newAddress)) revert AlreadyWhitelistedReceiver();
+        
+        _grantRole(WHITELIST_RECEIVER_ROLE, newAddress);
+        emit AddedReceiverAddress("New Receiver Address Whitelisted", newAddress);
+    }
+&nbsp;
+    /**
+     * @dev Remove whitelist receiver
+     */
+    function removeWhitelistReceiver(address receiverAddress)
+        external
+        <span class="missing-if-branch" title="else path not taken" >E</span>onlyRole(DEFAULT_ADMIN_ROLE)
+        <span class="missing-if-branch" title="else path not taken" >E</span>validAddress(receiverAddress)
+    {
+        if (!hasRole(WHITELIST_RECEIVER_ROLE, receiverAddress)) revert NotWhitelistedReceiver();
+        
+        _revokeRole(WHITELIST_RECEIVER_ROLE, receiverAddress);
+        emit RemovedReceiverAddress("Receiver Address Removed From Whitelist", receiverAddress);
+    }
+&nbsp;
+    function setTrustedForwarder(
+        address _trustedForwarder,
+        bool _isTrusted
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        trustedForwarder[_trustedForwarder] = _isTrusted;
+    }
+&nbsp;
+    function isTrustedForwarder(
+        address forwarder
+    ) public view override returns (bool) {
+        return trustedForwarder[forwarder];
+    }
+&nbsp;
+    function _msgSender()
+        internal
+        view
+        override(ContextUpgradeable, ERC2771ContextUpgradeable)
+        returns (address sender)
+    {
+        return ERC2771ContextUpgradeable._msgSender();
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function _msgData()</span>
+        internal
+        view
+        override(ContextUpgradeable, ERC2771ContextUpgradeable)
+        returns (bytes calldata)
+    {
+<span class="cstat-no" title="statement not covered" >        return ERC2771ContextUpgradeable._msgData();</span>
+    }
+&nbsp;
+    function _contextSuffixLength()
+        internal
+        view
+        override(ContextUpgradeable, ERC2771ContextUpgradeable)
+        returns (uint256)
+    {
+        return ERC2771ContextUpgradeable._contextSuffixLength();
+    }
+} </pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Sun Aug 03 2025 12:31:10 GMT+0530 (India Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>
