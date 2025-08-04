@@ -36,11 +36,7 @@ contract KGEN is
     /// @dev Maximum total supply of tokens (1 billion with 8 decimals)
     uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**8; // 1 billion tokens with 8 decimals
     
-    // ============ WHITELIST SYSTEM ============
-    /// @dev Mapping of addresses that are whitelisted to send tokens
-    mapping(address => bool) public whitelistedSenders;
-    /// @dev Mapping of addresses that are whitelisted to receive tokens
-    mapping(address => bool) public whitelistedReceivers;
+
     /// @dev Mapping of trusted forwarder addresses for ERC2771 meta-transactions
     mapping(address => bool) public trustedForwarder;
 
@@ -272,13 +268,7 @@ contract KGEN is
     function addTreasury(address account) external onlyAdmin validAddress(account) {
         if (hasRole(TREASURY_ROLE, account)) revert AlreadyTreasury();
         _grantRole(TREASURY_ROLE, account);
-        
-        // Automatically add to sender whitelist if not already there
-        if (!whitelistedSenders[account]) {
-            whitelistedSenders[account] = true;
-            emit AddedSenderAddress("New Sender Address Whitelisted", account);
-        }
-        
+
         emit AddedTreasuryAddress("New Treasury Address Added", account);
     }
 
@@ -315,57 +305,6 @@ contract KGEN is
         _revokeRole(BURN_VAULT_ROLE, account);
         emit UpdatedBurnVault("Burnable Address Removed", account);
     }
-
-    // ============ WHITELIST MANAGEMENT FUNCTIONS ============
-    /**
-     * @dev Adds an address to the sender whitelist
-     * @param account The address to add to sender whitelist
-     * @notice Only admin can add sender addresses
-     * @notice Whitelisted senders can transfer tokens to any address
-     */
-    function addWhitelistSender(address account) external onlyAdmin validAddress(account) {
-        if (whitelistedSenders[account]) revert AlreadyWhitelistedSender();
-        whitelistedSenders[account] = true;
-        emit AddedSenderAddress("New Sender Address Whitelisted", account);
-    }
-
-    /**
-     * @dev Removes an address from the sender whitelist
-     * @param account The address to remove from sender whitelist
-     * @notice Only admin can remove sender addresses
-     * @notice Cannot remove treasury addresses from sender whitelist
-     */
-    function removeWhitelistSender(address account) external onlyAdmin {
-        if (!whitelistedSenders[account]) revert NotWhitelistedSender();
-        if (hasRole(TREASURY_ROLE, account)) revert CannotDeleteTreasuryAddress();
-        
-        whitelistedSenders[account] = false;
-        emit RemovedSenderAddress("Sender Address Removed From Whitelist", account);
-    }
-
-    /**
-     * @dev Adds an address to the receiver whitelist
-     * @param account The address to add to receiver whitelist
-     * @notice Only admin can add receiver addresses
-     * @notice Whitelisted receivers can receive tokens from any address
-     */
-    function addWhitelistReceiver(address account) external onlyAdmin validAddress(account) {
-        if (whitelistedReceivers[account]) revert AlreadyWhitelistedReceiver();
-        whitelistedReceivers[account] = true;
-        emit AddedReceiverAddress("New Receiver Address Whitelisted", account);
-    }
-
-    /**
-     * @dev Removes an address from the receiver whitelist
-     * @param account The address to remove from receiver whitelist
-     * @notice Only admin can remove receiver addresses
-     */
-    function removeWhitelistReceiver(address account) external onlyAdmin {
-        if (!whitelistedReceivers[account]) revert NotWhitelistedReceiver();
-        whitelistedReceivers[account] = false;
-        emit RemovedReceiverAddress("Receiver Address Removed From Whitelist", account);
-    }
-
     // ============ FREEZE MANAGEMENT FUNCTIONS ============
     /**
      * @dev Freezes accounts with specified sending and receiving restrictions
@@ -468,11 +407,6 @@ contract KGEN is
         if (frozenAccounts[_msgSender()].sending) revert AccountIsFrozen();
         if (frozenAccounts[to].receiving) revert AccountIsFrozen();
         
-        // Check whitelist requirements: either sender must be whitelisted OR receiver must be whitelisted
-        if (!whitelistedSenders[_msgSender()] && !whitelistedReceivers[to]) {
-            revert InvalidReceiverOrSender();
-        }
-        
         bool success = super.transfer(to, amount);
         if (success) {
             emit Transfer(_msgSender(), to, amount);
@@ -493,11 +427,6 @@ contract KGEN is
     function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
         if (frozenAccounts[from].sending) revert AccountIsFrozen();
         if (frozenAccounts[to].receiving) revert AccountIsFrozen();
-        
-        // Check whitelist requirements: either sender must be whitelisted OR receiver must be whitelisted
-        if (!whitelistedSenders[from] && !whitelistedReceivers[to]) {
-            revert InvalidReceiverOrSender();
-        }
         
         bool success = super.transferFrom(from, to, amount);
         if (success) {
@@ -528,14 +457,6 @@ contract KGEN is
     function isFrozen(address account) external view returns (bool sending, bool receiving) {
         FreezeStatus memory status = frozenAccounts[account];
         return (status.sending, status.receiving);
-    }
-
-    function isWhitelistedSender(address account) external view returns (bool) {
-        return whitelistedSenders[account];
-    }
-
-    function isWhitelistedReceiver(address account) external view returns (bool) {
-        return whitelistedReceivers[account];
     }
 
     function isTreasury(address account) external view returns (bool) {
