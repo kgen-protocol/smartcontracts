@@ -1,15 +1,15 @@
 
 /// A production-ready module for managing fungible assets and NFT marketplace operations
 module distributorMarket::distributorMarket {
-    use aptos_framework::fungible_asset::{Self, MintRef, TransferRef, BurnRef, Metadata, FungibleAsset};
-    use aptos_framework::object::{Self, Object, ConstructorRef};
+    use aptos_framework::fungible_asset::{Self, MintRef, TransferRef, BurnRef, Metadata};
+    use aptos_framework::object::{Self, Object};
     use aptos_framework::primary_fungible_store;
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event;
     use aptos_framework::timestamp;
     use std::error;
     use std::signer;
-    use std::option::{Self, Option};
+    use std::option::{Self};
     use std::string::{Self, String};
     use std::vector; 
 
@@ -55,13 +55,13 @@ module distributorMarket::distributorMarket {
     // ================================
     
     /// Storage contract address - should be configurable in production
-    const STORAGE_CONTRACT: address = @0x58582549492273975be7790f5639adf18123e2c0c2743cefd51f16cc1137e443;
+    const STORAGE_CONTRACT: address = @0xb578a061714233b367f03806a7053f6cc0aaa25000bcfdb2137f86030895792e;
     
     /// Maximum number of assets that can be batch processed
     const MAX_BATCH_SIZE: u64 = 100;
     
     /// Vault seed for resource account creation
-    const VAULT_SEED: vector<u8> = b"DistributorMarket_Vault_v1";
+    const VAULT_SEED: vector<u8> = b"DistributorMarket_Vault";
 
     // ================================
     // Resource Structures
@@ -217,6 +217,7 @@ module distributorMarket::distributorMarket {
             storage_contract: STORAGE_CONTRACT,
         });
     }
+    
 
     // ================================
     // View Functions
@@ -426,7 +427,7 @@ module distributorMarket::distributorMarket {
         assert!(asset_exists(asset_symbol), error::not_found(E_ASSET_NOT_EXISTS));
 
         let asset = get_metadata(asset_symbol);
-        let managed_fungible_asset = authorized_borrow_refs(admin_address, asset);
+        let managed_fungible_asset = authorized_borrow_refs(asset);
         assert!(!managed_fungible_asset.is_paused, error::unavailable(E_OPERATION_NOT_ALLOWED));
         
         let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
@@ -460,7 +461,7 @@ module distributorMarket::distributorMarket {
         assert!(asset_exists(asset_symbol), error::not_found(E_ASSET_NOT_EXISTS));
 
         let asset = get_metadata(asset_symbol);
-        let managed_fungible_asset = authorized_borrow_refs(admin_address, asset);
+        let managed_fungible_asset = authorized_borrow_refs(asset);
         assert!(!managed_fungible_asset.is_paused, error::unavailable(E_OPERATION_NOT_ALLOWED));
         
         let from_wallet = primary_fungible_store::primary_store(from, asset);
@@ -523,7 +524,7 @@ module distributorMarket::distributorMarket {
         assert!(asset_exists(asset_symbol), error::not_found(E_ASSET_NOT_EXISTS));
 
         let asset = get_metadata(asset_symbol);
-        let transfer_ref = &authorized_borrow_refs(from, asset).transfer_ref;
+        let transfer_ref = &authorized_borrow_refs(asset).transfer_ref;
         let from_wallet = primary_fungible_store::primary_store(from, asset);
         let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
         
@@ -591,9 +592,6 @@ module distributorMarket::distributorMarket {
         assert!(is_authorized_buyer(buyer_address), error::permission_denied(E_NOT_AUTHORIZED_BUYER));
         assert!(!is_vault_paused(), error::unavailable(E_OPERATION_NOT_ALLOWED));
         assert!(asset_exists(nft_asset_symbol), error::not_found(E_ASSET_NOT_EXISTS));
-
-        let vault = borrow_global<Vault>(get_vault_address());
-        
         // Check NFT balance of CP
         let cp_nft_balance = get_balance(cp, nft_asset_symbol);
         assert!(cp_nft_balance >= nft_quantity, error::invalid_argument(E_INSUFFICIENT_BALANCE));
@@ -604,7 +602,7 @@ module distributorMarket::distributorMarket {
         assert!(buyer_payment_balance >= payment_amount, error::invalid_argument(E_INSUFFICIENT_BALANCE));
 
         // Transfer NFT from CP to storage contract
-        transfer(cp, vault.storage_contract, nft_quantity, nft_asset_symbol);   
+        transfer(cp, STORAGE_CONTRACT, nft_quantity, nft_asset_symbol);   
 
         // Ensure CP has a store for payment token
         primary_fungible_store::ensure_primary_store_exists(cp, payment_asset);
@@ -748,10 +746,9 @@ module distributorMarket::distributorMarket {
     // inline Functions
     // ================================
     inline fun authorized_borrow_refs(
-        owner: address,
         asset: Object<Metadata>,
     ): &ManagedFungibleAsset acquires ManagedFungibleAsset {
-        assert!(object::is_owner(asset, owner), error::permission_denied(E_NOT_OWNER));
+        // assert!(object::is_owner(asset, owner), error::permission_denied(E_NOT_OWNER));
         borrow_global<ManagedFungibleAsset>(object::object_address(&asset))
     }
     inline fun get_metadata_object(object: address): Object<Metadata> {
