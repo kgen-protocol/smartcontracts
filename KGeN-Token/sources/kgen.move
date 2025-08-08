@@ -473,9 +473,11 @@ module kgen::kgen {
         management.assert_is_admin(admin);
         management.assert_is_treasury(&treasury_addr);
         // Find the index of the treausy address
-        let (_, i) = management.treasury_vec.index_of(&treasury_addr);
-        management.treasury_vec.remove(i);
-        event::emit(RemoveTreasuryAddress { removed_address: treasury_addr });
+        let (found, i) = management.treasury_vec.index_of(&treasury_addr);
+        if (found) {
+            management.treasury_vec.remove(i);
+            event::emit(RemoveTreasuryAddress { removed_address: treasury_addr });
+        }
     }
 
     // Add a new minter address. Can only be called by the admin.
@@ -493,9 +495,11 @@ module kgen::kgen {
         management.assert_is_admin(admin);
         management.assert_is_minter(&minter_addr);
         // Find the index of the treausy address
-        let (_, i) = management.minter_vec.index_of(&minter_addr);
-        management.minter_vec.remove(i);
-        event::emit(RemoveMinterAddress { removed_address: minter_addr });
+        let (found, i) = management.minter_vec.index_of(&minter_addr);
+        if(found) {
+            management.minter_vec.remove(i);
+            event::emit(RemoveMinterAddress { removed_address: minter_addr });
+        }
     }
 
     // Update the burn vault. Can only be called by the admin.
