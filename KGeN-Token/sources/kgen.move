@@ -258,6 +258,7 @@ module kgen::kgen {
         amount: u64
     ) acquires KgenManagement {
         let management = get_kgen_management_ref();
+        management.assert_not_paused();
         management.assert_is_minter(&address_of(minter));
         management.assert_is_treasury(&to);
         let primary_store =
