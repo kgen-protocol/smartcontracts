@@ -1,0 +1,24 @@
+[package]
+name = "distributorMarket"
+version = "1.0.0"
+authors = []
+
+[addresses]
+# Your module’s publishing address (fill at publish time or via CLI profile)
+distributorMarket = "0x19da09bcd30f1fc909fdb60dce1bbda3bc232644e5cfc4922267b65308c8a635"
+
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.AptosStdlib]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-stdlib"
+
+[dependencies.AptosTokenObjects]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-token-objects"
