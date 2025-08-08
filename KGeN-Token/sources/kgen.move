@@ -340,6 +340,7 @@ module kgen::kgen {
         let management = get_kgen_management_ref();
         management.assert_is_admin(admin);
         management.assert_is_frozen(object::owner(from_store));
+        management.assert_not_frozen(to, false, true);
         let to_store = primary_fungible_store::ensure_primary_store_exists(
             to, metadata()
         );
