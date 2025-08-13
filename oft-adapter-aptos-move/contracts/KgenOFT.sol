@@ -44,7 +44,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     
     /// @notice Maximum number of trusted forwarders allowed
     uint256 public constant MAX_TRUSTED_FORWARDERS = 10;
-   address public FEE_VALUT;
+   address public FEE_VAULT;
     
     // =============================================================
     //                            STORAGE
@@ -87,7 +87,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     
     /// @notice Emitted when rate limit is hit
     event RateLimitExceeded(address indexed user, uint32 indexed dstEid, uint256 amount, uint256 limit);
-    event UpdateFeeVault(address  new_fee_valut,address  old_fee_vault);
+    event UpdateFeeVault(address  new_fee_vault,address  old_fee_vault);
     // =============================================================
     //                           ERRORS
     // =============================================================
@@ -171,9 +171,9 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         emit PauseStatusChanged(_paused);
     }
 
-    function updateFeeVault(address  new_fee_valut) external onlyRole(DEFAULT_ADMIN_ROLE){
-        emit UpdateFeeVault(new_fee_valut,FEE_VALUT);
-        FEE_VALUT = new_fee_valut;
+    function updateFeeVault(address  new_fee_vault) external onlyRole(DEFAULT_ADMIN_ROLE){
+        emit UpdateFeeVault(new_fee_vault,FEE_VAULT);
+        FEE_VAULT = new_fee_vault;
     }
 
     /**
@@ -409,7 +409,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         address _refundAddress,
         uint256 gasFeeAmount 
     ) public payable returns  (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
-        transferFrom(_msgSender(), FEE_VALUT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
+        transferFrom(_msgSender(), FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
         (msgReceipt, oftReceipt) = _send(
             _sendParam,
             _fee,
