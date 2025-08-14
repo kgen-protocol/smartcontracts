@@ -44,7 +44,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     
     /// @notice Maximum number of trusted forwarders allowed
     uint256 public constant MAX_TRUSTED_FORWARDERS = 10;
-   address public FEE_VAULT;
+    address public FEE_VAULT;
     
     // =============================================================
     //                            STORAGE
@@ -60,8 +60,6 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     /// @notice Emergency stop flag for cross-chain operations only
     bool public crossChainPaused;
     
-    /// @notice Contract version for upgrades tracking
-    string public constant VERSION = "1.0.0";
 
     // =============================================================
     //                            EVENTS
@@ -85,8 +83,6 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     /// @notice Emitted when tokens are recovered
     event TokenRecovered(address indexed token, address indexed to, uint256 amount);
     
-    /// @notice Emitted when rate limit is hit
-    event RateLimitExceeded(address indexed user, uint32 indexed dstEid, uint256 amount, uint256 limit);
     event UpdateFeeVault(address  new_fee_vault,address  old_fee_vault);
     // =============================================================
     //                           ERRORS
@@ -408,7 +404,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         MessagingFee calldata _fee,
         address _refundAddress,
         uint256 gasFeeAmount 
-    ) public payable returns  (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+    ) public payable  nonReentrant returns  (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
         transferFrom(_msgSender(), FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
         (msgReceipt, oftReceipt) = _send(
             _sendParam,
