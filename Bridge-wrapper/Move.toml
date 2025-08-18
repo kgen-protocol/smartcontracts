@@ -1,0 +1,21 @@
+[package]
+name = "kgen_wrapper"
+version = "1.0.0"
+authors = []
+
+[addresses]
+kGeNAdmin="0xfb3bddd5ae0d24f06b906c914fbdd781569a38829ad909f706e70e2a49106a53"
+oft="0x4d420456ac631d7c67551d98599cae79e0e666cbf396252c4643bb1128817f36"
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.oft]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "5023586abe577d4820b11dcdc48b192816ecd02f"
+subdir = 'oft-adapter-aptos-move'
+
+[dev-dependencies]
