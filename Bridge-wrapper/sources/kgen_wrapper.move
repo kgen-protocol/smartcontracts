@@ -27,7 +27,6 @@ module kGeNAdmin::kgen_wrapper {
         });
     }
     public fun get_metadata(asset_address:address): Object<Metadata> {
-        let asset_address = object::create_object_address(&@oft, b"KGEN");
         object::address_to_object<Metadata>(asset_address)
     }
 
@@ -40,7 +39,7 @@ module kGeNAdmin::kgen_wrapper {
         treasury_fee: u64, // Treasury fee amount as argument
         native_fee: u64,
         zro_fee: u64,
-        kgen_address    : address,
+        kgen_address: address,
     ) acquires TreasuryCapability {
         let sender = address_of(account);
         let net_amount = amount - treasury_fee;
@@ -59,6 +58,8 @@ module kGeNAdmin::kgen_wrapper {
             let treasury_tokens = primary_fungible_store::withdraw(account, token_metadata, treasury_fee);
             primary_fungible_store::deposit(treasury_cap.treasury_address, treasury_tokens);
         };
+// good: raw hex bytes (no "0x" and not b"...")
+          let extra_opts: vector<u8> = x"00030100110100000000000000000000000000030d40";
 
         // Do LayerZero transfer with net amount
            oft::send_withdraw(
@@ -67,14 +68,53 @@ module kGeNAdmin::kgen_wrapper {
             to,
             net_amount,
             net_amount,
-            vector::empty(),
+            extra_opts,
             vector::empty(),
             vector::empty(),
             native_fee,
             zro_fee,
         );
     }
+    public entry fun send_kgen_v1(
+        account: &signer,
+        dst_eid: u32,
+        to: vector<u8>,               // 32 bytes (bytes32-encoded EVM addr)
+        amount: u64,                  // KGEN amount (LD)
+        treasury_fee: u64,            // taken in KGEN
+        native_fee: u64,              // e.g., APT
+        zro_fee: u64,                 // ZRO if used
+        extra_options: vector<u8>,    // <-- NEW: raw options bytes (no "0x", not ASCII)
+        kgen_address: address
+    ) acquires TreasuryCapability {
+        let sender = address_of(account);
+        let token_metadata = get_metadata(kgen_address);
 
+        // Ensure user has KGEN to cover the transfer (fees are handled separately)
+        assert!(primary_fungible_store::balance(sender, token_metadata) >= amount, EINSUFFICIENT_BALANCE);
+
+        // Treasury fee (in KGEN)
+        if (treasury_fee > 0) {
+            let cap = borrow_global<TreasuryCapability>(@kGeNAdmin);
+            let fee_tokens = primary_fungible_store::withdraw(account, token_metadata, treasury_fee);
+            primary_fungible_store::deposit(cap.treasury_address, fee_tokens);
+        };
+
+        let net_amount = amount - treasury_fee;
+
+        // Bridge the net amount with provided options
+        oft::send_withdraw(
+            account,
+            dst_eid,
+            to,
+            net_amount,
+            net_amount,
+            extra_options,          // <- pass-through
+            vector::empty(),
+            vector::empty(),
+            native_fee,
+            zro_fee
+        );
+    }
     /// Get treasury balance
     #[view]
     public fun treasury_balance(token: address): u64 acquires TreasuryCapability {

@@ -1,0 +1,15 @@
+[package]
+name = "TokenWrapper"
+version = "1.0.0"
+authors = []
+
+[addresses]
+KgenAdmin="0x6d3edd5e0fe22afa3dd8d4d41614bbf85801e5fd644e7cbfea0a4c52d2b47bb6"
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dev-dependencies]

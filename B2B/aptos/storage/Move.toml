@@ -1,0 +1,28 @@
+[package]
+name = "kgenStorage"
+version = "1.0.0"
+authors = []
+
+[addresses]
+kgen_storage="0x19da09bcd30f1fc909fdb60dce1bbda3bc232644e5cfc4922267b65308c8a635"
+distributorMarket = "0x19da09bcd30f1fc909fdb60dce1bbda3bc232644e5cfc4922267b65308c8a635"
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.AptosStdlib]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-stdlib"
+
+[dependencies.AptosTokenObjects]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-token-objects"
+[dependencies.distributorMarket]
+git = "https://github.com/kgen-protocol/smartcontracts"
+rev = "4cd258cdc20874be8c29844133d45fb6ad68ff6b"
+subdir = 'B2B/aptos/distributor'
