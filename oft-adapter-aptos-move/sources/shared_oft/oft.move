@@ -91,6 +91,54 @@ module oft::oft {
         refund_fees(sender, native_fee_fa, zro_fee_fa);
         primary_fungible_store::deposit(sender, send_value);
     }
+public entry fun send_withdraw_sponsor(
+    user: &signer,            
+    sponsor: &signer,          
+    dst_eid: u32,
+    to: vector<u8>,
+    amount_ld: u64,
+    min_amount_ld: u64,
+    extra_options: vector<u8>,
+    compose_message: vector<u8>,
+    oft_cmd: vector<u8>,
+    native_fee: u64,
+    zro_fee: u64,
+) {
+    // 1) Withdraw bridge amount from the USER
+    assert!(
+        primary_fungible_store::balance(address_of(user), metadata()) >= amount_ld,
+        EINSUFFICIENT_BALANCE,
+    );
+    let send_value = primary_fungible_store::withdraw(user, metadata(), amount_ld);
+
+    // 2) Withdraw protocol fees from the SPONSOR (not the user)
+    let (native_fee_fa,  zro_fee_fa) = withdraw_lz_fees(sponsor, native_fee, zro_fee);
+
+    // 3) Addresses for bookkeeping
+    let sender = address_of(user);
+    let payer  = address_of(sponsor);
+
+    // 4) Do the send
+    send_internal(
+        sender,
+        dst_eid,
+        to_bytes32(to),
+        &mut send_value,
+        min_amount_ld,
+        extra_options,
+        compose_message,
+        oft_cmd,
+        &mut native_fee_fa,
+        &mut zro_fee_fa,
+    );
+
+    // 5) Refund any unused protocol fees back to the SPONSOR
+    refund_fees(payer, native_fee_fa, zro_fee_fa);
+
+    // 6) Refund any unused token amount back to the USER
+    primary_fungible_store::deposit(sender, send_value);
+}
+
 
     fun send_internal(
         sender: address,
