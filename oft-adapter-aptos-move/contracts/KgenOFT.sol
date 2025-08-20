@@ -381,7 +381,6 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         whenNotPaused
         whenCrossChainNotPaused
         notBlacklisted(_msgSender())
-        nonReentrant
         returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
     {
         (uint256 amountSentLD, uint256 amountReceivedLD) = _debit(
@@ -405,7 +404,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         address _refundAddress,
         uint256 gasFeeAmount 
     ) public payable  nonReentrant returns  (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
-        transferFrom(_msgSender(), FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
+        transfer(FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
         (msgReceipt, oftReceipt) = _send(
             _sendParam,
             _fee,
