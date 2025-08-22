@@ -75,19 +75,54 @@ module kGeNAdmin::kgen_wrapper {
             zro_fee,
         );
     }
-use aptos_framework::primary_fungible_store;
-use aptos_framework::native_token;
-use std::vector;
 
-const EINSUFFICIENT_BALANCE: u64 = 0x1000;
-const EINVALID_TREASURY_FEE: u64 = 0x1003;
+    public entry fun send_kgen_v1(
+        account: &signer,
+        dst_eid: u32,
+        to: vector<u8>,               // 32 bytes (bytes32-encoded EVM addr)
+        amount: u64,                  // KGEN amount (LD)
+        treasury_fee: u64,            // taken in KGEN
+        native_fee: u64,              // e.g., APT
+        zro_fee: u64,                 // ZRO if used
+        extra_options: vector<u8>,    // <-- NEW: raw options bytes (no "0x", not ASCII)
+        kgen_address: address
+    ) acquires TreasuryCapability {
+        let sender = address_of(account);
+        let token_metadata = get_metadata(kgen_address);
+
+        // Ensure user has KGEN to cover the transfer (fees are handled separately)
+        assert!(primary_fungible_store::balance(sender, token_metadata) >= amount, EINSUFFICIENT_BALANCE);
+
+        // Treasury fee (in KGEN)
+        if (treasury_fee > 0) {
+            let cap = borrow_global<TreasuryCapability>(@kGeNAdmin);
+            let fee_tokens = primary_fungible_store::withdraw(account, token_metadata, treasury_fee);
+            primary_fungible_store::deposit(cap.treasury_address, fee_tokens);
+        };
+
+        let net_amount = amount - treasury_fee;
+
+        // Bridge the net amount with provided options
+        oft::send_withdraw(
+            account,
+            dst_eid,
+            to,
+            net_amount,
+            net_amount,
+            extra_options,          // <- pass-through
+            vector::empty(),
+            vector::empty(),
+            native_fee,
+            zro_fee
+        );
+    }
 
 // assumes you already have:
 // - struct TreasuryCapability { treasury_address: address }
 // - fun get_metadata(kgen_address: address): address;
 // - oft::send_withdraw(user: &signer, sponsor: &signer, ...)
 
-public entry fun send_kgen(
+public entry fun send_kgen_sponsor(
     user: &signer,               // was `account`
     sponsor: &signer,            // NEW: pays protocol fees (APT/ZRO)
     dst_eid: u32,
@@ -101,9 +136,6 @@ public entry fun send_kgen(
 ) acquires TreasuryCapability {
     let sender = address_of(user);
     let token_metadata = get_metadata(kgen_address);
-
-    // sanity: fee cannot exceed amount
-    assert!(treasury_fee <= amount, EINVALID_TREASURY_FEE);
 
     // user must own enough KGEN to cover total `amount`
     assert!(
@@ -122,15 +154,15 @@ public entry fun send_kgen(
 
     // bridge the net amount; protocol fees (APT/ZRO) come from the SPONSOR
     oft::send_withdraw_sponsor(
-        user,                       // user’s tokens are withdrawn here
-        sponsor,                    // NEW: fees are withdrawn from this signer
+        user,                       
+        sponsor,                    
         dst_eid,
         to,
-        net_amount,                 // amount_ld
-        net_amount,                 // min_amount_ld (slippage = 0 here)
+        net_amount,                
+        net_amount,                 
         extra_options,
-        vector::empty<u8>(),        // compose_message
-        vector::empty<u8>(),        // oft_cmd
+        vector::empty<u8>(),       
+        vector::empty<u8>(),        
         native_fee,
         zro_fee
     );
