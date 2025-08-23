@@ -247,8 +247,8 @@ module rkgen::swap {
     }
 
     #[view]
-    // get calculate sponser swap output amount
-    public fun get_sponser_swap_preview(amount_in: u64, gas_fee_amount: u64): (u64, u64, u64) acquires  SwapPool {
+    // get calculate sponsor swap output amount
+    public fun get_sponsor_swap_preview(amount_in: u64, gas_fee_amount: u64): (u64, u64, u64) acquires  SwapPool {
         assert_amount(amount_in);
         assert!(gas_fee_amount > 0, EINVALID_GAS_FEE);
         assert_pool();
@@ -395,7 +395,7 @@ module rkgen::swap {
         assert_pool();
 
         // Calculate fee and output amount
-        let (amount_out, swap_fee_amount, total_fee_amount) = get_sponser_swap_preview(amount, swap_gas_fee_amount);
+        let (amount_out, swap_fee_amount, total_fee_amount) = get_sponsor_swap_preview(amount, swap_gas_fee_amount);
 
         let pool = borrow_global_mut<SwapPool>(@rkgen);
         assert!(!pool.is_paused, ESWAP_PAUSED);
