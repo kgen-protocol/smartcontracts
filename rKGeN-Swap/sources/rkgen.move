@@ -301,6 +301,10 @@ module rkgen::swap {
 
         // Create store for output token only
         let output_token_store_constructor= &object::create_object(@rkgen);
+        // Generate TransferRef and disable ungated transfer
+        let transfer_ref = object::generate_transfer_ref(output_token_store_constructor);
+        object::disable_ungated_transfer(&transfer_ref);
+
         fungible_asset::create_store(output_token_store_constructor,output_token_metadata);
         let output_token_store_extend_ref = object::generate_extend_ref(output_token_store_constructor);
 
