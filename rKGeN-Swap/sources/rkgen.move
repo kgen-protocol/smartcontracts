@@ -48,7 +48,8 @@ module rkgen::swap {
     // Stores references for admin, and SwapPool of rKGEN to KGEN.
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct Admin has key {
-        admin: address
+        admin: address,
+        pending_admin: address,
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -114,8 +115,16 @@ module rkgen::swap {
     }
 
     #[event]
-    // Triggered when admin is updated
-    struct AdminUpdated has drop, store {
+    // Triggered when admin is transferred
+    struct TransferAdmin has drop, store {
+        admin: address,
+        pending_admin: address,
+        updated_by: address,
+    }
+
+    #[event]
+    // Triggered when admin accepts transfer
+    struct AcceptAdmin has drop, store {
         old_admin: address,
         new_admin: address,
         updated_by: address,
@@ -298,7 +307,7 @@ module rkgen::swap {
     fun init_module(admin: &signer) {
         move_to(admin,
             Admin {
-            admin: signer::address_of(admin)
+            admin: signer::address_of(admin), pending_admin: @0x0,
         });
     }
 
@@ -485,20 +494,34 @@ module rkgen::swap {
         });
     }
 
-    // Update the admin address. Can only be called by the current admin.
-    public entry fun update_admin(admin: &signer, new_admin: address) acquires  Admin {
+    // Set the pending admin to the specified new admin. The new admin still needs to accept to become the admin.
+    public entry fun transfer_admin(admin: &signer, new_admin: address) acquires  Admin {
         assert_admin(admin);
-
         let admin_resource = borrow_global_mut<Admin>(@rkgen);
         let old_admin = admin_resource.admin;
-        admin_resource.admin = new_admin;
+        admin_resource.pending_admin = new_admin;
 
-        event::emit(AdminUpdated{
-            old_admin,
-            new_admin,
+        event::emit(TransferAdmin{
+            admin: old_admin,
+            pending_admin: new_admin,
             updated_by: signer::address_of(admin),
         });
     }
+
+    // Accept the admin role. This can only be called by the pending admin.
+    public entry fun accept_admin(pending_admin: &signer) acquires  Admin {
+        assert!(borrow_global<Admin>(@rkgen).pending_admin == signer::address_of(pending_admin), EUNAUTHORIZED);
+        let admin_resource = borrow_global_mut<Admin>(@rkgen);
+        let old_admin = admin_resource.admin;
+        admin_resource.admin = admin_resource.pending_admin;
+        admin_resource.pending_admin = @0x0;
+        event::emit(AcceptAdmin{
+            old_admin,
+            new_admin: admin_resource.pending_admin,
+            updated_by: signer::address_of(pending_admin),
+        });
+    }
+
     // Update the swap rate. Can only be called by the admin.
     public entry fun update_swap_fee_rate(admin: &signer, new_swap_fee_rate: u64) acquires Admin, SwapPool {
         assert_admin(admin);
