@@ -30,7 +30,8 @@ module rkgen::swap {
     const EFEES_EXCEED_AMOUNT: u64 = 9;
     /// Invalid swap ratio (must be between 1 and 10000, cannot exceed 1:1)
     const EINVALID_SWAP_RATIO: u64 = 10;
-
+    /// Input and output tokens must be different when creating a swap pool
+    const ESAME_TOKEN_PAIR: u64 = 11;
     // Constants
     /// Maximum fee rate in basis points (10000 = 100%)
     const MAX_FEE_RATE: u64 = 10000;
@@ -292,6 +293,8 @@ module rkgen::swap {
     // Create a swap pool between input token and output token. Can only be called by the admin.
     public entry fun create_pool(admin: &signer, input_token_metadata: Object<Metadata>, output_token_metadata: Object<Metadata>, initial_fee_rate: u64, initial_swap_ratio: u64, fee_recipient: address) acquires  Admin {
         assert_admin(admin);
+        // Ensure input and output tokens are different
+        assert!(input_token_metadata != output_token_metadata, ESAME_TOKEN_PAIR);
         assert!(initial_fee_rate <= MAX_FEE_RATE, EINVALID_FEE_RATE);
         assert_swap_ratio(initial_swap_ratio);
         assert!(!exists<SwapPool>(@rkgen), EPOOL_NOT_EXISTS);
