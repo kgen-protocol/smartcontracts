@@ -238,12 +238,24 @@ module rkgen::swap {
         assert_pool();
         let pool = borrow_global<SwapPool>(@rkgen);
 
+        // Convert to u128 to prevent overflow during multiplication
+        let amount_in_u128 = (amount_in as u128);
+        let swap_ratio_u128 = (pool.swap_ratio as u128);
+        let fee_ratio_precision_u128 = (FEE_RATIO_PRECISION as u128);
+        let swap_fee_rate_u128 = (pool.swap_fee_rate as u128);
+        let fee_precision_u128 = (FEE_PRECISION as u128);
+
         // Calculate output amount based on swap ratio
-        let swap_ratio_amount = (amount_in * pool.swap_ratio) / FEE_RATIO_PRECISION;
+        let swap_ratio_amount_u128 = (amount_in_u128 * swap_ratio_u128) / fee_ratio_precision_u128;
 
         // Calculate fee on the output amount
-        let fee_amount = (swap_ratio_amount * pool.swap_fee_rate) / FEE_PRECISION;
-        let amount_out = swap_ratio_amount - fee_amount;
+        let fee_numerator = swap_ratio_amount_u128 * swap_fee_rate_u128;
+        let fee_amount_u128 = (fee_numerator + fee_precision_u128 - 1) / fee_precision_u128;
+        let amount_out_u128 = swap_ratio_amount_u128 - fee_amount_u128;
+
+        let amount_out = (amount_out_u128 as u64);
+        let fee_amount = (fee_amount_u128 as u64);
+
         (amount_out, fee_amount)
     }
 
