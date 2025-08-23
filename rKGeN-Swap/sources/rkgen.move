@@ -267,14 +267,29 @@ module rkgen::swap {
         assert_pool();
         let pool = borrow_global<SwapPool>(@rkgen);
 
-        // Calculate output amount based on swap ratio
-        let output_amount = (amount_in * pool.swap_ratio) / FEE_RATIO_PRECISION;
+        // Convert to u128 to prevent overflow during calculation
+        let amount_in_u128 = (amount_in as u128);
+        let swap_ratio_u128 = (pool.swap_ratio as u128);
+        let fee_ratio_precision_u128 = (FEE_RATIO_PRECISION as u128);
+        let swap_fee_rate_u128 = (pool.swap_fee_rate as u128);
+        let fee_precision_u128 = (FEE_PRECISION as u128);
+        let gas_fee_amount_u128 = (gas_fee_amount as u128);
 
-        // Calculate swap fee and gas fee on the output amount
-        let swap_fee_amount = (output_amount * pool.swap_fee_rate) / FEE_PRECISION;
-        let total_fee_amount = swap_fee_amount + gas_fee_amount;
-        assert!(total_fee_amount < output_amount, EFEES_EXCEED_AMOUNT);
-        let amount_out = output_amount - total_fee_amount;
+        // Calculate output amount based on swap ratio
+        let output_amount_u128 = (amount_in_u128 * swap_ratio_u128) / fee_ratio_precision_u128;
+
+        let swap_fee_numerator = output_amount_u128 * swap_fee_rate_u128;
+        let swap_fee_amount_u128 = (swap_fee_numerator + fee_precision_u128 - 1) / fee_precision_u128;
+
+        let total_fee_amount_u128 = swap_fee_amount_u128 + gas_fee_amount_u128;
+        // Ensure total fees don't exceed output amount
+        assert!(total_fee_amount_u128 < output_amount_u128, EFEES_EXCEED_AMOUNT);
+
+        let amount_out_u128 = output_amount_u128 - total_fee_amount_u128;
+
+        let amount_out = (amount_out_u128 as u64);
+        let swap_fee_amount = (swap_fee_amount_u128 as u64);
+        let total_fee_amount = (total_fee_amount_u128 as u64);
 
         (amount_out, swap_fee_amount, total_fee_amount)
     }
