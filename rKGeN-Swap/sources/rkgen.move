@@ -136,7 +136,7 @@ module rkgen::swap {
 
     #[event]
     // Triggred when swap is paused or unpaused
-    struct SwapPauseStatisChanges has drop, store {
+    struct SwapPauseStatusChanges has drop, store {
         is_paused: bool,
         updated_by: address,
     }
@@ -283,7 +283,7 @@ module rkgen::swap {
         let pool = borrow_global_mut<SwapPool>(@rkgen);
         pool.is_paused = pause;
 
-        event::emit(SwapPauseStatisChanges{
+        event::emit(SwapPauseStatusChanges{
             is_paused: pause,
             updated_by: signer::address_of(admin),
         })
