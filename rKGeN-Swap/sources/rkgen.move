@@ -473,7 +473,7 @@ module rkgen::swap {
 
         pool.total_input_token_swapped += amount;
         pool.total_output_token_swapped += amount_out;
-        pool.total_fees_collected += swap_fee_amount;
+        pool.total_fees_collected += total_fee_amount;
 
         event::emit(SponsoredSwap {
             user: user_addr,
