@@ -502,7 +502,7 @@ module rkgen::swap {
     // Update the swap rate. Can only be called by the admin.
     public entry fun update_swap_fee_rate(admin: &signer, new_swap_fee_rate: u64) acquires Admin, SwapPool {
         assert_admin(admin);
-        assert!(new_swap_fee_rate <= MAX_FEE_RATE, EINVALID_FEE_RATE);
+        assert!(new_swap_fee_rate < MAX_FEE_RATE, EINVALID_FEE_RATE);
         assert_pool();
 
         let pool = borrow_global_mut<SwapPool>(@rkgen);
