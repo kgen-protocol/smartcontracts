@@ -459,7 +459,7 @@ module rkgen::swap {
         primary_fungible_store::ensure_primary_store_exists(burn_vault_address, pool.input_token_metadata);
         primary_fungible_store::ensure_primary_store_exists(pool.fee_recipient, pool.output_token_metadata);
 
-        // Transfer output token from user to admin
+        // Transfer input token from user to burn vault address
         rKGEN::transfer(user, burn_vault_address, amount);
 
         // Transfer fee and gas_fee to fee recipient (in output token)
