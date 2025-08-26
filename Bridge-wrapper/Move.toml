@@ -15,7 +15,7 @@ subdir = "aptos-framework"
 
 [dependencies.oft]
 git = "https://github.com/kgen-protocol/smartcontracts"
-rev = "1c821ec588762970c6f360c5a3d30055d7ffe04c"
+rev = "5cd7415aa06f173a19e1a126b5d9a135f255d9f9"
 subdir = 'oft-adapter-aptos-move'
 
 [dev-dependencies]
