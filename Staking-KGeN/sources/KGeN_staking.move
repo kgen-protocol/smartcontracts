@@ -69,16 +69,12 @@ module KGeNAdmin::KGeN_staking {
         platform_list: smart_vector::SmartVector<address>,
         signer_cap: SignerCapability,
         resource_address: address,
+        rewards_signer_cap: SignerCapability,
+        rewards_resource_address: address,
         nominated_admin: option::Option<address>,
         gas_treasuries: smart_vector::SmartVector<address>
     }
 
-    struct RewardsAdmin has key {
-        admin:address,
-        signer_cap:SignerCapability,
-        resource_address:address,     
-        nominated_admin: option::Option<address>
-    }
     // Represents a specific APY range configuration for staking.
     struct APYRange has store, drop, copy {
         min_amount: u64,
@@ -189,8 +185,8 @@ module KGeNAdmin::KGeN_staking {
 
     // Get the rewards resource account address associated with the admin
     #[view]
-    public fun get_rewards_resource_acc_address(): address acquires RewardsAdmin{
-        borrow_global<RewardsAdmin>(@KGeNAdmin).resource_address
+    public fun get_rewards_resource_acc_address(): address acquires Admin {
+        borrow_global<Admin>(@KGeNAdmin).rewards_resource_address
     }
 
 
@@ -359,8 +355,7 @@ module KGeNAdmin::KGeN_staking {
         total_rewards_earned - stake.total_claimed + stake.amount
     }
 
-    // Deprecated event: Use `AddStakeEvent` instead.
-   // This event is kept for backward compatibility but should NOT be emitted in new code. 
+    // Event emitted when a stake is added
     #[event]
     struct AddStakeEvent has drop, store {
         amount: u64,
@@ -479,11 +474,21 @@ module KGeNAdmin::KGeN_staking {
 
 
     fun init_module(admin: &signer) {
+        // This function is called automatically when module is published
+        // We'll use setup_admin instead for manual initialization
+    }
+    
+    public entry fun setup_admin(admin: &signer) {
         let admin_address = signer::address_of(admin);
         let seed = b"KGeN_staking";
         let (resource_signer, resource_signer_cap) =
             account::create_resource_account(admin, seed);
         let resource_account_address = signer::address_of(&resource_signer);
+
+        // Create rewards resource account
+        let rewards_seed = b"KGeN_rewards_treasury_seed";
+        let (rewards_signer, rewards_signer_cap) = account::create_resource_account(admin, rewards_seed);
+        let rewards_account_address = signer::address_of(&rewards_signer);
 
         let initial_range_id = 1;
         move_to(
@@ -494,6 +499,8 @@ module KGeNAdmin::KGeN_staking {
                 platform_list: smart_vector::new<address>(),
                 signer_cap: resource_signer_cap,
                 resource_address: resource_account_address,
+                rewards_signer_cap: rewards_signer_cap,
+                rewards_resource_address: rewards_account_address,
                 nominated_admin: option::none(),
                 gas_treasuries: smart_vector::new<address>()
             }
@@ -504,23 +511,6 @@ module KGeNAdmin::KGeN_staking {
                 ranges: smart_table::new<u64, APYRange>()
             }
         );
-    }
-    
-    public entry fun init_reward_admin(admin: &signer){
-        // Create a new resource account for the reward source
-        let admin_address = signer::address_of(admin);
-        let seed = b"KGeN_rewards_treasury_seed";
-        let (reward_source_signer, resource_signer_cap) = account::create_resource_account(admin, seed);
-        let reward_source_account_address = signer::address_of(&reward_source_signer);
-
-        // Create the RewardsAdmin resource and store it
-        let rewards_admin = RewardsAdmin {
-            admin:admin_address,
-            resource_address: reward_source_account_address,
-            signer_cap: resource_signer_cap,
-            nominated_admin: option::none(),
-        };
-        move_to(admin, rewards_admin);
     }
 
     // Remove KGeN from contract - DEPRECATED: Use FA v2 transfers instead
@@ -792,7 +782,7 @@ module KGeNAdmin::KGeN_staking {
             }
         );
     }
- public entry fun auto_renewal(admin:&signer,user_address:address,stake_id:u64,object:address,gas_fee_amount:u64) acquires UserStakes,Admin,RewardsAdmin {
+ public entry fun auto_renewal(admin:&signer,user_address:address,stake_id:u64,object:address,gas_fee_amount:u64) acquires UserStakes,Admin {
         assert!(
              signer::address_of(admin) == get_admin(),
              error::permission_denied(ENOT_ADMIN)
@@ -843,12 +833,24 @@ module KGeNAdmin::KGeN_staking {
         user_stakes_table.stake_id = user_stakes_table.stake_id + 1;
         simple_map::add(&mut user_stakes_table.stakes, user_stakes_table.stake_id, new_stake);
         
-        // Transfer gas fee to treasury and restake net amount
+        // Transfer rewards and handle gas fee
         let treasury = get_random_treasury();
-        let res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
+        
+        // Step 1: Transfer rewards from rewards resource account to main resource account
+        let rewards_config = borrow_global<Admin>(@KGeNAdmin);
+        let rewards_signer = account::create_signer_with_capability(&rewards_config.rewards_signer_cap);
+        
+        primary_fungible_store::transfer(
+            &rewards_signer,
+            get_metadata_object(object),
+            get_resource_acc_address(),  // Main resource account
+            current_reward
+        );
+        
+        // Step 2: Pay gas fee from main resource account to treasury
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
         let resource_signer = account::create_signer_with_capability(&res_config.signer_cap);
         
-        // Send gas fee to treasury
         primary_fungible_store::transfer(
             &resource_signer,
             get_metadata_object(object),
@@ -856,13 +858,8 @@ module KGeNAdmin::KGeN_staking {
             gas_fee_amount
         );
         
-        // Send remaining amount to resource account for restaking
-        primary_fungible_store::transfer(
-            &resource_signer,
-            get_metadata_object(object),
-            get_resource_acc_address(),
-            net_amount
-        );
+        // Note: No need to transfer net_amount back - it's already in the resource account!
+        // Resource account now has: stake.amount + current_reward - gas_fee_amount = net_amount
         
         simple_map::remove(&mut user_stakes_table.stakes, &stake_id);
         event::emit(
@@ -952,7 +949,7 @@ module KGeNAdmin::KGeN_staking {
         } else {
             let user_stakes_table = borrow_global_mut<UserStakes>(user_address);
             user_stakes_table.stake_id = user_stakes_table.stake_id + 1;
-            simple_map::add(&mut user_stakes_table.stakes, user_stakes_table.stake_id, new_stake);
+
             
             // Send gas fee to treasury
             primary_fungible_store::transfer(
@@ -969,7 +966,8 @@ module KGeNAdmin::KGeN_staking {
                 resource_addr,
                 net_stake_amount
             );
-            
+
+            simple_map::add(&mut user_stakes_table.stakes, user_stakes_table.stake_id, new_stake);
             event::emit(
                 StakeCompletedEvent {
                     stake_id: user_stakes_table.stake_id,
@@ -986,7 +984,7 @@ module KGeNAdmin::KGeN_staking {
     }
     public entry fun harvest(
         user: &signer, platform: &signer, object: address, gas_fee_amount: u64, stake_id: u64
-    ) acquires UserStakes, Admin,RewardsAdmin{
+    ) acquires UserStakes, Admin{
         // verify platform
         assert!(
             verify_platform(&signer::address_of(platform)),
@@ -1031,12 +1029,12 @@ module KGeNAdmin::KGeN_staking {
         let net_reward = current_reward - gas_fee_amount;
 
         // Transfer the net reward to the user and gas fee to treasury
-        let res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
         let resource_signer =
             account::create_signer_with_capability(&res_config.signer_cap);
         let treasury = get_random_treasury();
         
-        // Send gas fee to treasury
+        // Send gas fee to treasury (deducted from user rewards)
         primary_fungible_store::transfer(
             &resource_signer,
             get_metadata_object(object),
@@ -1044,9 +1042,12 @@ module KGeNAdmin::KGeN_staking {
             gas_fee_amount
         );
         
-        // Send net reward to user
+        // Send net reward to user from rewards resource account
+        let rewards_res_config = borrow_global<Admin>(@KGeNAdmin);
+        let rewards_signer = account::create_signer_with_capability(&rewards_res_config.rewards_signer_cap);
+        
         primary_fungible_store::transfer(
-            &resource_signer,
+            &rewards_signer,
             get_metadata_object(object),
             user_address,
             net_reward
@@ -1070,7 +1071,7 @@ module KGeNAdmin::KGeN_staking {
 
     public entry fun claim(
         user: &signer, platform: &signer, object: address, gas_fee_amount: u64, stake_id: u64
-    ) acquires UserStakes, Admin ,RewardsAdmin{
+    ) acquires UserStakes, Admin {
         // verify platform
         assert!(
             verify_platform(&signer::address_of(platform)),
@@ -1117,65 +1118,45 @@ module KGeNAdmin::KGeN_staking {
             account::create_signer_with_capability(&res_config.signer_cap);
         let treasury = get_random_treasury();
         
-        // Calculate how much to send from each resource account
-        let reward_portion = if (current_reward >= gas_fee_amount) {
-            // Gas fee comes entirely from rewards
-            let net_reward = current_reward - gas_fee_amount;
-            
-            // Send principal to user
-            primary_fungible_store::transfer(
-                &resource_signer,
-                get_metadata_object(object),
-                user_address,
-                stake.amount
-            );
-            
-            // Send gas fee to treasury
-            primary_fungible_store::transfer(
-                &resource_signer,
-                get_metadata_object(object),
-                treasury,
-                gas_fee_amount
-            );
-            
-            net_reward
+        // Calculate gas fee deduction: prioritize principal over rewards
+        let gas_fee_from_principal = if (stake.amount >= gas_fee_amount) {
+            gas_fee_amount
         } else {
-            // Gas fee comes from both rewards and principal
-            let remaining_gas_fee = gas_fee_amount - current_reward;
-            let net_principal = stake.amount - remaining_gas_fee;
-            
-            // Send net principal to user
-            primary_fungible_store::transfer(
-                &resource_signer,
-                get_metadata_object(object),
-                user_address,
-                net_principal
-            );
-            
-            // Send remaining gas fee to treasury
-            primary_fungible_store::transfer(
-                &resource_signer,
-                get_metadata_object(object),
-                treasury,
-                remaining_gas_fee
-            );
-            
-            0
+            stake.amount
         };
         
-        // Transfer rewards from Rewards Admin resource account
-        let rewards_res_config = borrow_global<RewardsAdmin>(@KGeNAdmin);
-        let resource_rewards_signer =  
-            account::create_signer_with_capability(&rewards_res_config.signer_cap);
+        let gas_fee_from_rewards = gas_fee_amount - gas_fee_from_principal;
         
-        if (reward_portion > 0) {
+        // Send principal (minus gas fee portion) from main resource account
+        let net_principal = stake.amount - gas_fee_from_principal;
+        primary_fungible_store::transfer(
+            &resource_signer,
+            get_metadata_object(object),
+            user_address,
+            net_principal
+        );
+        
+        // Send rewards (minus gas fee portion) from rewards resource account
+        if (current_reward > gas_fee_from_rewards) {
+            let rewards_res_config = borrow_global<Admin>(@KGeNAdmin);
+            let rewards_signer = account::create_signer_with_capability(&rewards_res_config.rewards_signer_cap);
+            let net_rewards = current_reward - gas_fee_from_rewards;
+            
             primary_fungible_store::transfer(
-                &resource_rewards_signer,
+                &rewards_signer,
                 get_metadata_object(object),
                 user_address,
-                reward_portion
+                net_rewards
             );
         };
+        
+        // Send gas fee to treasury from main resource account
+        primary_fungible_store::transfer(
+            &resource_signer,
+            get_metadata_object(object),
+            treasury,
+            gas_fee_amount
+        );
         
         event::emit(
             ClaimEvent {
