@@ -32,13 +32,13 @@ const deploy: DeployFunction = async (hre) => {
     //   }
     // }
     const endpointV2Deployment = await hre.deployments.get('EndpointV2')
-
+    console.log("endpointV2Deployment.address",endpointV2Deployment.address)
     const { address } = await deploy(contractName, {
         from: deployer,
         args: [
             'KGEN', // name
             'KGEN', // symbol
-            '0x6EDCE65403992e310A62460808c4b910D972f10f', // LayerZero's EndpointV2 address
+            endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner\
             '0xBD4568bC939F1f2eBC29b36963c6240822212183',
         ],
@@ -48,6 +48,7 @@ const deploy: DeployFunction = async (hre) => {
 
     console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${address}`)
 }
+//0x1a44076050125825900e736c501f859c50fE728c
 
 deploy.tags = [contractName]
 
