@@ -447,7 +447,7 @@ module KGeNAdmin::KGeN_staking {
                 rewards_signer_cap: rewards_signer_cap,
                 rewards_resource_address: rewards_account_address,
                 nominated_admin: option::none(),
-                gas_treasury: @0x0
+                gas_treasury: @0x0  // Use provided treasury address
             }
         );
         move_to(
@@ -1149,7 +1149,7 @@ module KGeNAdmin::KGeN_staking {
          if (current_time < lock_end_time) {
           amount_to_unstake = amount_to_unstake - stake.total_claimed;
          };
-         let resource_signer_account = get_resource_acc_address(); //
+         let resource_signer_account = get_resource_acc_address();
          
          // Validate gas fee amount
          assert!(gas_fee_amount <= amount_to_unstake, error::invalid_argument(EGAS_FEE_TOO_LARGE));
