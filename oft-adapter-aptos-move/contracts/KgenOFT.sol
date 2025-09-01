@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.22;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ERC2771Context } from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
@@ -13,6 +13,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title KGENOFT
@@ -25,69 +26,67 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  *         - Token recovery functionality
  * @author KGEN Development Team
  */
-contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuard {
+contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuard, Ownable2Step {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // =============================================================
     //                           CONSTANTS
     // =============================================================
-    
+
     /// @notice Role for managing trusted forwarders
     bytes32 public constant FORWARDER_MANAGER_ROLE = keccak256("FORWARDER_MANAGER_ROLE");
-    
+
     /// @notice Role for managing blacklist
     bytes32 public constant BLACKLIST_MANAGER_ROLE = keccak256("BLACKLIST_MANAGER_ROLE");
-    
+
     /// @notice Role for pausing/unpausing the contract
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    
+
     /// @notice Maximum number of trusted forwarders allowed
     uint256 public constant MAX_TRUSTED_FORWARDERS = 10;
     address public FEE_VAULT;
-    
+
     // =============================================================
     //                            STORAGE
     // =============================================================
-    
+
     /// @notice Set of trusted forwarders for gas optimization
     EnumerableSet.AddressSet private _trustedForwardersSet;
-    
+
     /// @notice Mapping to track blacklisted addresses
     mapping(address => bool) public isBlackListed;
 
-    
     /// @notice Emergency stop flag for cross-chain operations only
     bool public crossChainPaused;
-    
 
     // =============================================================
     //                            EVENTS
     // =============================================================
-    
+
     /// @notice Emitted when a trusted forwarder is added
     event TrustedForwarderAdded(address indexed forwarder);
-    
-    /// @notice Emitted when a trusted forwarder is removed  
+
+    /// @notice Emitted when a trusted forwarder is removed
     event TrustedForwarderRemoved(address indexed forwarder);
-    
+
     /// @notice Emitted when blacklist status changes
     event BlacklistStatusChanged(address indexed account, bool isBlacklisted);
-    
+
     /// @notice Emitted when pause status changes
     event PauseStatusChanged(bool isPaused);
-    
+
     /// @notice Emitted when cross-chain pause status changes
     event CrossChainPauseStatusChanged(bool isPaused);
-    
+
     /// @notice Emitted when tokens are recovered
     event TokenRecovered(address indexed token, address indexed to, uint256 amount);
-    
-    event UpdateFeeVault(address  new_fee_vault,address  old_fee_vault);
+
+    event UpdateFeeVault(address new_fee_vault, address old_fee_vault);
     // =============================================================
     //                           ERRORS
     // =============================================================
-    
+
     error ZeroAddress();
     error AlreadyTrustedForwarder();
     error NotTrustedForwarder();
@@ -100,13 +99,13 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     // =============================================================
     //                         MODIFIERS
     // =============================================================
-    
+
     /// @notice Ensures address is not blacklisted
     modifier notBlacklisted(address account) {
         if (isBlackListed[account]) revert BlacklistedAddress(account);
         _;
     }
-    
+
     /// @notice Ensures cross-chain operations are not paused
     modifier whenCrossChainNotPaused() {
         if (crossChainPaused) revert CrossChainOperationsPaused();
@@ -116,7 +115,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     // =============================================================
     //                        CONSTRUCTOR
     // =============================================================
-    
+
     /**
      * @notice Initializes the KGENOFT contract
      * @param _name Token name
@@ -131,15 +130,15 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         address _lzEndpoint,
         address _delegate,
         address _trustedForwarder
-    ) 
-        OFT(_name, _symbol, _lzEndpoint, _delegate) 
-        Ownable(_delegate) 
+    )
+        OFT(_name, _symbol, _lzEndpoint, _delegate)
         ERC2771Context(_trustedForwarder)
+        Ownable(_delegate) // needed this as internally the oft uses Ownable  class
+        Ownable2Step()
     {
         if (_delegate == address(0)) revert ZeroAddress();
-        
-        // Grant roles to the delegate
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
+        _transferOwnership(_delegate);
         _grantRole(FORWARDER_MANAGER_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
         _grantRole(PAUSER_ROLE, _delegate);
@@ -153,7 +152,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     // =============================================================
     //                      ADMIN FUNCTIONS
     // =============================================================
-    
+
     /**
      * @notice Pauses or unpauses all contract operations
      * @param _paused True to pause, false to unpause
@@ -167,8 +166,8 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         emit PauseStatusChanged(_paused);
     }
 
-    function updateFeeVault(address  new_fee_vault) external onlyRole(DEFAULT_ADMIN_ROLE){
-        emit UpdateFeeVault(new_fee_vault,FEE_VAULT);
+    function updateFeeVault(address new_fee_vault) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit UpdateFeeVault(new_fee_vault, FEE_VAULT);
         FEE_VAULT = new_fee_vault;
     }
 
@@ -176,11 +175,11 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @notice Pauses or unpauses only cross-chain operations
      * @param _paused True to pause cross-chain, false to unpause
      */
-    function setCrossChainPaused(bool _paused) external onlyRole(PAUSER_ROLE) {
+    function setCrossChainPaused(bool _paused) external whenNotPaused whenCrossChainNotPaused onlyRole(PAUSER_ROLE) {
         crossChainPaused = _paused;
         emit CrossChainPauseStatusChanged(_paused);
     }
-    
+
     /**
      * @notice Recovers accidentally sent ERC20 tokens
      * @dev Should not be used to recover the native token of this contract
@@ -188,21 +187,15 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @param to Address to send recovered tokens to
      * @param amount Amount of tokens to recover
      */
-    function recoverERC20(
-        address token, 
-        address to, 
-        uint256 amount
-    ) external onlyOwner nonReentrant {
+    function recoverERC20(address token, address to, uint256 amount) external onlyOwner nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert InvalidAmount();
-        
-        try IERC20(token).transfer(to, amount) {
-            emit TokenRecovered(token, to, amount);
-        } catch {
-            revert TokenRecoveryFailed();
-        }
+
+        IERC20(token).safeTransfer(to, amount);
+
+        emit TokenRecovered(token, to, amount);
     }
-    
+
     /**
      * @notice Recovers native ETH accidentally sent to contract
      * @param to Address to send recovered ETH to
@@ -211,41 +204,41 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     function recoverETH(address payable to, uint256 amount) external onlyOwner nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0 || amount > address(this).balance) revert InvalidAmount();
-        
-        (bool success, ) = to.call{value: amount}("");
+
+        (bool success, ) = to.call{ value: amount }("");
         require(success, "ETH recovery failed");
-        
+
         emit TokenRecovered(address(0), to, amount);
     }
 
     // =============================================================
     //                   BLACKLIST FUNCTIONS
     // =============================================================
-    
+
     /**
      * @notice Adds or removes an address from blacklist
      * @param account Address to modify blacklist status for
      * @param blacklisted True to blacklist, false to remove from blacklist
      */
     function setBlacklistStatus(
-        address account, 
+        address account,
         bool blacklisted
-    ) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+    ) external whenNotPaused whenCrossChainNotPaused onlyRole(BLACKLIST_MANAGER_ROLE) {
         if (account == address(0)) revert ZeroAddress();
-        
+
         isBlackListed[account] = blacklisted;
         emit BlacklistStatusChanged(account, blacklisted);
     }
-    
+
     /**
      * @notice Batch blacklist operation for efficiency
      * @param accounts Array of addresses to modify
      * @param blacklisted True to blacklist all, false to remove all from blacklist
      */
     function batchSetBlacklistStatus(
-        address[] calldata accounts, 
+        address[] calldata accounts,
         bool blacklisted
-    ) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+    ) external whenNotPaused whenCrossChainNotPaused onlyRole(BLACKLIST_MANAGER_ROLE) {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (accounts[i] == address(0)) revert ZeroAddress();
             isBlackListed[accounts[i]] = blacklisted;
@@ -256,7 +249,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     // =============================================================
     //                ERC2771 CONTEXT OVERRIDES
     // =============================================================
-    
+
     /**
      * @notice Override _msgSender to support ERC2771 meta-transactions
      * @return Original sender address from meta-transaction data
@@ -284,7 +277,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     // =============================================================
     //               TRUSTED FORWARDER MANAGEMENT
     // =============================================================
-    
+
     /**
      * @notice Checks if an address is a trusted forwarder
      * @param forwarder Address to check
@@ -298,13 +291,15 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @notice Adds a trusted forwarder for meta-transactions
      * @param forwarder Address of the forwarder to add
      */
-    function addTrustedForwarder(address forwarder) external onlyRole(FORWARDER_MANAGER_ROLE) {
+    function addTrustedForwarder(
+        address forwarder
+    ) external whenNotPaused whenCrossChainNotPaused onlyRole(FORWARDER_MANAGER_ROLE) {
         if (forwarder == address(0)) revert ZeroAddress();
         if (_trustedForwardersSet.contains(forwarder)) revert AlreadyTrustedForwarder();
         if (_trustedForwardersSet.length() >= MAX_TRUSTED_FORWARDERS) {
             revert MaxTrustedForwardersExceeded();
         }
-        
+
         _trustedForwardersSet.add(forwarder);
         emit TrustedForwarderAdded(forwarder);
     }
@@ -313,9 +308,11 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @notice Removes a trusted forwarder
      * @param forwarder Address of the forwarder to remove
      */
-    function removeTrustedForwarder(address forwarder) external onlyRole(FORWARDER_MANAGER_ROLE) {
+    function removeTrustedForwarder(
+        address forwarder
+    ) external whenNotPaused whenCrossChainNotPaused onlyRole(FORWARDER_MANAGER_ROLE) {
         if (!_trustedForwardersSet.contains(forwarder)) revert NotTrustedForwarder();
-        
+
         _trustedForwardersSet.remove(forwarder);
         emit TrustedForwarderRemoved(forwarder);
     }
@@ -336,7 +333,6 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         return _trustedForwardersSet.length();
     }
 
-
     /**
      * @notice Emergency function to update trusted forwarder
      * @dev Atomically removes old and adds new forwarder
@@ -344,25 +340,24 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @param newForwarder Address of forwarder to add
      */
     function updateTrustedForwarder(
-        address oldForwarder, 
+        address oldForwarder,
         address newForwarder
-    ) external onlyRole(FORWARDER_MANAGER_ROLE) {
+    ) external whenNotPaused whenCrossChainNotPaused onlyRole(FORWARDER_MANAGER_ROLE) {
         if (newForwarder == address(0)) revert ZeroAddress();
         if (!_trustedForwardersSet.contains(oldForwarder)) revert NotTrustedForwarder();
         if (_trustedForwardersSet.contains(newForwarder)) revert AlreadyTrustedForwarder();
-        
+
         _trustedForwardersSet.remove(oldForwarder);
         _trustedForwardersSet.add(newForwarder);
-        
+
         emit TrustedForwarderRemoved(oldForwarder);
         emit TrustedForwarderAdded(newForwarder);
     }
 
-
     // =============================================================
     //                   LAYERZERO OVERRIDES
     // =============================================================
-    
+
     /**
      * @notice Override _send to add security checks
      * @param _sendParam Send parameters
@@ -390,28 +385,25 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
             _sendParam.dstEid
         );
 
-        (bytes memory message, bytes memory options) =
-            _buildMsgAndOptions(_sendParam, amountReceivedLD);
+        (bytes memory message, bytes memory options) = _buildMsgAndOptions(_sendParam, amountReceivedLD);
 
         msgReceipt = _lzSend(_sendParam.dstEid, message, options, _fee, _refundAddress);
         oftReceipt = OFTReceipt(amountSentLD, amountReceivedLD);
 
         emit OFTSent(msgReceipt.guid, _sendParam.dstEid, _msgSender(), amountSentLD, amountReceivedLD);
     }
+
     function sendFrom(
         SendParam calldata _sendParam,
         MessagingFee calldata _fee,
         address _refundAddress,
-        uint256 gasFeeAmount 
-    ) public payable  nonReentrant returns  (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
-        transfer(FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa 
-        (msgReceipt, oftReceipt) = _send(
-            _sendParam,
-            _fee,
-            _refundAddress
-        );
+        uint256 gasFeeAmount
+    ) public payable nonReentrant returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+        transfer(FEE_VAULT, gasFeeAmount); // amount should be > 0 only when we paying the gas fee for the user else it could be zero  if user is using eoa
+        (msgReceipt, oftReceipt) = _send(_sendParam, _fee, _refundAddress);
         return (msgReceipt, oftReceipt);
     }
+
     /**
      * @notice Override _credit to add blacklist check for recipients
      * @param _to Address to credit tokens to
@@ -423,60 +415,74 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         address _to,
         uint256 _amountLD,
         uint32 _srcEid
-    ) internal virtual override notBlacklisted(_to) returns (uint256 amountReceivedLD) {
+    )
+        internal
+        virtual
+        override
+        whenCrossChainNotPaused
+        whenNotPaused
+        notBlacklisted(_to)
+        returns (uint256 amountReceivedLD)
+    {
         return super._credit(_to, _amountLD, _srcEid);
     }
 
     // =============================================================
     //                    TOKEN OVERRIDES
     // =============================================================
-    
+
     /**
      * @notice Override transfer to add blacklist checks
      */
-    function transfer(address to, uint256 amount) 
-        public 
-        virtual 
-        override 
-        whenNotPaused
-        notBlacklisted(_msgSender())
-        notBlacklisted(to)
-        returns (bool) 
-    {
+    function transfer(
+        address to,
+        uint256 amount
+    ) public virtual override whenNotPaused notBlacklisted(_msgSender()) notBlacklisted(to) returns (bool) {
         return super.transfer(to, amount);
     }
 
     /**
      * @notice Override transferFrom to add blacklist checks
      */
-    function transferFrom(address from, address to, uint256 amount) 
-        public 
-        virtual 
-        override 
-        whenNotPaused
-        notBlacklisted(from)
-        notBlacklisted(to)
-        returns (bool) 
-    {
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override whenNotPaused notBlacklisted(from) notBlacklisted(to) returns (bool) {
         return super.transferFrom(from, to, amount);
     }
 
     // =============================================================
     //                   INTERFACE SUPPORT
     // =============================================================
-    
+
     /**
      * @notice Override supportsInterface to include all inherited interfaces
      */
-    function supportsInterface(bytes4 interfaceId) 
-        public 
-        view 
-        virtual 
-        override(AccessControl) 
-        returns (bool) 
-    {
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
+    // =============================================================
+    //                   OWNERSHIP OVERRIDES
+    // =============================================================
 
+    function owner() public view override(Ownable) returns (address) {
+        return Ownable.owner();
+    }
+
+    // 2) transferOwnership(): it’s declared in Ownable and overridden in Ownable2Step,
+    // so list BOTH in the override clause
+    function transferOwnership(address newOwner) public override(Ownable, Ownable2Step) onlyOwner {
+        Ownable2Step.transferOwnership(newOwner);
+    }
+
+    // 3) _transferOwnership(): same reasoning — list BOTH bases
+    function _transferOwnership(address newOwner) internal override(Ownable, Ownable2Step) {
+        Ownable2Step._transferOwnership(newOwner);
+    }
+
+    function decimals() public view override returns (uint8) {
+        return 8;
+    }
 }
