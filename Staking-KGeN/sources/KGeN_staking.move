@@ -440,14 +440,12 @@ module KGeNAdmin::KGeN_staking {
     fun init_module(admin: &signer) {
         // This function is called automatically when module is published
         let admin_address = signer::address_of(admin);
-        let seed = KGEN_STAKING_SEED;
         let (resource_signer, resource_signer_cap) =
-            account::create_resource_account(admin, seed);
+            account::create_resource_account(admin, KGEN_STAKING_SEED);
         let resource_account_address = signer::address_of(&resource_signer);
 
         // Create rewards resource account
-        let rewards_seed = KGEN_REWARDS_TREASURY_SEED;
-        let (rewards_signer, rewards_signer_cap) = account::create_resource_account(admin, rewards_seed);
+        let (rewards_signer, rewards_signer_cap) = account::create_resource_account(admin, KGEN_REWARDS_TREASURY_SEED);
         let rewards_account_address = signer::address_of(&rewards_signer);
 
         let initial_range_id = 1;
@@ -1020,7 +1018,7 @@ module KGeNAdmin::KGeN_staking {
         
         // Deduct gas fee from total payout
         let net_payout = total_payout - gas_fee_amount;
-        
+
         let gasFee_treasury = get_gas_treasury_address();
 
         // Transfer the net payout to the user and gas fee to treasury
