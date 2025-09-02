@@ -1,0 +1,15 @@
+[package]
+name = "KGeN_staking"
+version = "1.0.0"
+upgrade_policy = "compatible"
+authors = []
+
+[addresses]
+KGeNAdmin='0xe4f2c4ea613ae6982294a8a5200d442f7a9b5eec18e6486cfed5d008061c9482'
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "72d90dc"
+subdir = "aptos-framework"
+
+[dev-dependencies]
