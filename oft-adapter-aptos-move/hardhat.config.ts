@@ -53,10 +53,16 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        'bsc-testnet': {
-            eid: EndpointId.BSC_V2_TESTNET,
-            url: process.env.RPC_URL_BSC || 'https://bsc-testnet-rpc.publicnode.com',
+        // 'bsc-testnet': {
+        //     eid: EndpointId.BSC_V2_TESTNET,
+        //     url: process.env.RPC_URL_BSC || 'https://bsc-testnet-rpc.publicnode.com',
+        //     accounts,
+        // },
+        'bsc-mainnet': {
+            eid: EndpointId.BSC_V2_MAINNET,
+            url: 'https://bsc-mainnet.core.chainstack.com/19d74b6fe1e19cc1df6fbe8063d018a4',
             accounts,
+            chainId: 56,
         },
         // 'solana-testnet': {
         //     eid: EndpointId.SOLANA_V2_TESTNET,
@@ -70,7 +76,7 @@ const config: HardhatUserConfig = {
     },
     etherscan: {
         apiKey: {
-            bscTestnet: 'NSQ52YMYG7TFUYIN1CUZM6XVAWIUBZ1PCV',
+            bsc: 'NSQ52YMYG7TFUYIN1CUZM6XVAWIUBZ1PCV',
         },
     },
     namedAccounts: {
