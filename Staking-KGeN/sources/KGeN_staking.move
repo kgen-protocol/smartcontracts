@@ -775,10 +775,12 @@ module KGeNAdmin::KGeN_staking {
         );
     }
  public entry fun auto_renewal(admin:&signer,user_address:address,stake_id:u64,object:address,gas_fee_amount:u64) acquires UserStakes,Admin {
+        // verify platform
         assert!(
-             signer::address_of(admin) == get_admin(),
-             error::permission_denied(ENOT_ADMIN)
-         );
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
+        );
+
         assert!(
         is_stake_exists(user_address, stake_id),
         error::not_found(ESTAKE_NOT_EXIST));
