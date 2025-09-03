@@ -498,6 +498,34 @@ module KGeNAdmin::KGeN_staking {
         );
     }
 
+
+    // Transfer tokens from rewards resource account using Fungible Asset v2
+    public entry fun transfer_from_rewards_resource(
+        admin: &signer, 
+        receiver: address, 
+        amount: u64,
+        object: address
+    ) acquires Admin {
+        // Ensure the caller is the admin
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ENOT_ADMIN)
+        );
+
+        // Transfer tokens from rewards resource account to receiver using FA v2
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
+        let resource_signer = account::create_signer_with_capability(&res_config.rewards_signer_cap);
+        
+        transfer_tokens(&resource_signer, object, receiver, amount);
+        
+        event::emit(
+            TransferFromResource {
+                receiver,
+                amount
+            }
+        );
+    }
+
     // Updates the admin by nominating a new admin
     public entry fun nominate_admin(
         admin_addr: &signer, new_admin: address
