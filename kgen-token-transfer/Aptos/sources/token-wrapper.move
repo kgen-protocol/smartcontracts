@@ -4,34 +4,32 @@ module KgenAdmin::TokenWrapper {
     use aptos_framework::primary_fungible_store;
     use aptos_framework::dispatchable_fungible_asset;
     use std::signer;
-    const EONLY_OWNER: u64 = 100;
-    const EUNAUTHORIZED_WITHDRAWER: u64 = 101;
-    const ETOKEN_NOT_WHITELISTED: u64 = 102;
-    const EINSUFFICIENT_BALANCE: u64 = 103;
-    const EVAULT_ALREADY_CREATED:u64 = 104;
-    const EVAULT_NOT_CREATED:u64 = 105;
-    const EZERO_TOKEN_DEPOSIT:u64 = 106;
-    const EADMIN_NOT_FOUND:u64 = 107;
-    const ETOKEN_HAS_BALANCE:u64 = 108;
-    const EADMIN_ALREADY_PRESENT:u64 = 109;
-    const ETOKEN_ALREADY_WHITELISTED:u64 = 110;
-    const ENOT_DEPLOYER:u64 = 111;
+    const E_AMOUNT_LESS_THAN_FEE: u64 = 1;
     public entry fun transfer_kgen_token(
-        account: &signer, 
-        token_address: address, 
-        treasury:address,
-        receipient_address:address,
-        gasFee:u64,
+        account: &signer,
+        token_address: address,
+        treasury: address,
+        recipient_address: address,
+        gas_fee: u64,
         amount: u64,
-    )  {
-        let fa_data = object::address_to_object<Metadata>(token_address); 
-        // transfer to receipient_address 
+    ) {
+        // Require that the user-provided amount covers the fee
+        assert!(amount >= gas_fee, E_AMOUNT_LESS_THAN_FEE);
+
+        // Resolve the FA metadata from the token object address
+             let fa_data = object::address_to_object<Metadata>(token_address); 
+
+        // Sender's primary store
         let sender_store = primary_fungible_store::primary_store(signer::address_of(account), fa_data);
-        let withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(account, sender_store, amount);
-        let receiver_store = primary_fungible_store::ensure_primary_store_exists(receipient_address, fa_data);
+
+        // Compute the net amount to send after deducting the fee
+        let send_amount = amount - gas_fee;
+        let withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(account, sender_store, send_amount);
+        let receiver_store = primary_fungible_store::ensure_primary_store_exists(recipient_address, fa_data);
         dispatchable_fungible_asset::deposit<FungibleStore>(receiver_store,withdraw);
-        // transfer gas fee to treasury
-         withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(account, sender_store, gasFee);
+
+        // --- 2) Transfer FEE to treasury ---
+        withdraw = dispatchable_fungible_asset::withdraw<FungibleStore>(account, sender_store, gas_fee);
          let gas_receiver_store = primary_fungible_store::ensure_primary_store_exists(treasury, fa_data);
         dispatchable_fungible_asset::deposit<FungibleStore>(gas_receiver_store,withdraw);
 
