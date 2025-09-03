@@ -56,13 +56,13 @@ module KGeNAdmin::KGeN_staking {
     /// Treasury not found
     const ETREASURY_NOT_FOUND: u64 = 19;
 
-    const HARVEST_TIME: u64 = 5;  // For testing, in minutes
-    const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    // const HARVEST_TIME: u64 = 5;  // For testing, in minutes
+    // const SECONDS_IN_DAY: u64 = 86400; // In seconds
     const KGEN_STAKING_SEED: vector<u8> = b"KGeN_staking";
     const KGEN_REWARDS_TREASURY_SEED: vector<u8> = b"KGeN_rewards_treasury_seed";
 
-    //const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
-    //const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
+    const SECONDS_IN_DAY: u64 = 86400; // In seconds
     // Resources
     // Represents the admin's information and configuration.
     struct Admin has key {
