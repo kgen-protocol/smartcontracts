@@ -192,6 +192,20 @@ module kgen::kgen {
         management.burn_vault
     }
 
+    #[view]
+    // Get the minter addresses
+    public fun get_minter_address(): vector<address> acquires KgenManagement {
+        let management = get_kgen_management_ref();
+        management.minter_vec
+    }
+    
+    #[view]
+    // Get the treasury addresses
+    public fun get_treasury_address(): vector<address> acquires KgenManagement {
+        let management = get_kgen_management_ref();
+        management.treasury_vec
+    }
+
     // Initialize the module
     fun init_module(kgen_signer: &signer) {
         // Create the token with primary store support.
