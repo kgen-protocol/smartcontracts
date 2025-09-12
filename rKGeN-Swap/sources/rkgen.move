@@ -30,7 +30,8 @@ module rkgen::swap {
     const EFEES_EXCEED_AMOUNT: u64 = 9;
     /// Invalid swap ratio (must be between 1 and 10000, cannot exceed 1:1)
     const EINVALID_SWAP_RATIO: u64 = 10;
-
+    /// Input and output tokens must be different when creating a swap pool
+    const ESAME_TOKEN_PAIR: u64 = 11;
     // Constants
     /// Maximum fee rate in basis points (10000 = 100%)
     const MAX_FEE_RATE: u64 = 10000;
@@ -47,7 +48,8 @@ module rkgen::swap {
     // Stores references for admin, and SwapPool of rKGEN to KGEN.
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct Admin has key {
-        admin: address
+        admin: address,
+        pending_admin: address,
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -113,8 +115,16 @@ module rkgen::swap {
     }
 
     #[event]
-    // Triggered when admin is updated
-    struct AdminUpdated has drop, store {
+    // Triggered when admin is transferred
+    struct TransferAdmin has drop, store {
+        admin: address,
+        pending_admin: address,
+        updated_by: address,
+    }
+
+    #[event]
+    // Triggered when admin accepts transfer
+    struct AcceptAdmin has drop, store {
         old_admin: address,
         new_admin: address,
         updated_by: address,
@@ -136,7 +146,7 @@ module rkgen::swap {
 
     #[event]
     // Triggred when swap is paused or unpaused
-    struct SwapPauseStatisChanges has drop, store {
+    struct SwapPauseStatusChanges has drop, store {
         is_paused: bool,
         updated_by: address,
     }
@@ -237,31 +247,58 @@ module rkgen::swap {
         assert_pool();
         let pool = borrow_global<SwapPool>(@rkgen);
 
+        // Convert to u128 to prevent overflow during multiplication
+        let amount_in_u128 = (amount_in as u128);
+        let swap_ratio_u128 = (pool.swap_ratio as u128);
+        let fee_ratio_precision_u128 = (FEE_RATIO_PRECISION as u128);
+        let swap_fee_rate_u128 = (pool.swap_fee_rate as u128);
+        let fee_precision_u128 = (FEE_PRECISION as u128);
+
         // Calculate output amount based on swap ratio
-        let swap_ratio_amount = (amount_in * pool.swap_ratio) / FEE_RATIO_PRECISION;
+        let swap_ratio_amount_u128 = (amount_in_u128 * swap_ratio_u128) / fee_ratio_precision_u128;
 
         // Calculate fee on the output amount
-        let fee_amount = (swap_ratio_amount * pool.swap_fee_rate) / FEE_PRECISION;
-        let amount_out = swap_ratio_amount - fee_amount;
+        let fee_numerator = swap_ratio_amount_u128 * swap_fee_rate_u128;
+        let fee_amount_u128 = (fee_numerator + fee_precision_u128 - 1) / fee_precision_u128;
+        let amount_out_u128 = swap_ratio_amount_u128 - fee_amount_u128;
+
+        let amount_out = (amount_out_u128 as u64);
+        let fee_amount = (fee_amount_u128 as u64);
+
         (amount_out, fee_amount)
     }
 
     #[view]
-    // get calculate sponser swap output amount
-    public fun get_sponser_swap_preview(amount_in: u64, gas_fee_amount: u64): (u64, u64, u64) acquires  SwapPool {
+    // get calculate sponsor swap output amount
+    public fun get_sponsor_swap_preview(amount_in: u64, gas_fee_amount: u64): (u64, u64, u64) acquires  SwapPool {
         assert_amount(amount_in);
         assert!(gas_fee_amount > 0, EINVALID_GAS_FEE);
         assert_pool();
         let pool = borrow_global<SwapPool>(@rkgen);
 
-        // Calculate output amount based on swap ratio
-        let output_amount = (amount_in * pool.swap_ratio) / FEE_RATIO_PRECISION;
+        // Convert to u128 to prevent overflow during calculation
+        let amount_in_u128 = (amount_in as u128);
+        let swap_ratio_u128 = (pool.swap_ratio as u128);
+        let fee_ratio_precision_u128 = (FEE_RATIO_PRECISION as u128);
+        let swap_fee_rate_u128 = (pool.swap_fee_rate as u128);
+        let fee_precision_u128 = (FEE_PRECISION as u128);
+        let gas_fee_amount_u128 = (gas_fee_amount as u128);
 
-        // Calculate swap fee and gas fee on the output amount
-        let swap_fee_amount = (output_amount * pool.swap_fee_rate) / FEE_PRECISION;
-        let total_fee_amount = swap_fee_amount + gas_fee_amount;
-        assert!(total_fee_amount < output_amount, EFEES_EXCEED_AMOUNT);
-        let amount_out = output_amount - total_fee_amount;
+        // Calculate output amount based on swap ratio
+        let output_amount_u128 = (amount_in_u128 * swap_ratio_u128) / fee_ratio_precision_u128;
+
+        let swap_fee_numerator = output_amount_u128 * swap_fee_rate_u128;
+        let swap_fee_amount_u128 = (swap_fee_numerator + fee_precision_u128 - 1) / fee_precision_u128;
+
+        let total_fee_amount_u128 = swap_fee_amount_u128 + gas_fee_amount_u128;
+        // Ensure total fees don't exceed output amount
+        assert!(total_fee_amount_u128 < output_amount_u128, EFEES_EXCEED_AMOUNT);
+
+        let amount_out_u128 = output_amount_u128 - total_fee_amount_u128;
+
+        let amount_out = (amount_out_u128 as u64);
+        let swap_fee_amount = (swap_fee_amount_u128 as u64);
+        let total_fee_amount = (total_fee_amount_u128 as u64);
 
         (amount_out, swap_fee_amount, total_fee_amount)
     }
@@ -270,7 +307,7 @@ module rkgen::swap {
     fun init_module(admin: &signer) {
         move_to(admin,
             Admin {
-            admin: signer::address_of(admin)
+            admin: signer::address_of(admin), pending_admin: @0x0,
         });
     }
 
@@ -283,7 +320,7 @@ module rkgen::swap {
         let pool = borrow_global_mut<SwapPool>(@rkgen);
         pool.is_paused = pause;
 
-        event::emit(SwapPauseStatisChanges{
+        event::emit(SwapPauseStatusChanges{
             is_paused: pause,
             updated_by: signer::address_of(admin),
         })
@@ -292,12 +329,18 @@ module rkgen::swap {
     // Create a swap pool between input token and output token. Can only be called by the admin.
     public entry fun create_pool(admin: &signer, input_token_metadata: Object<Metadata>, output_token_metadata: Object<Metadata>, initial_fee_rate: u64, initial_swap_ratio: u64, fee_recipient: address) acquires  Admin {
         assert_admin(admin);
+        // Ensure input and output tokens are different
+        assert!(input_token_metadata != output_token_metadata, ESAME_TOKEN_PAIR);
         assert!(initial_fee_rate <= MAX_FEE_RATE, EINVALID_FEE_RATE);
         assert_swap_ratio(initial_swap_ratio);
         assert!(!exists<SwapPool>(@rkgen), EPOOL_NOT_EXISTS);
 
         // Create store for output token only
         let output_token_store_constructor= &object::create_object(@rkgen);
+        // Generate TransferRef and disable ungated transfer
+        let transfer_ref = object::generate_transfer_ref(output_token_store_constructor);
+        object::disable_ungated_transfer(&transfer_ref);
+
         fungible_asset::create_store(output_token_store_constructor,output_token_metadata);
         let output_token_store_extend_ref = object::generate_extend_ref(output_token_store_constructor);
 
@@ -352,7 +395,7 @@ module rkgen::swap {
         primary_fungible_store::ensure_primary_store_exists(burn_vault_address, pool.input_token_metadata);
         primary_fungible_store::ensure_primary_store_exists(pool.fee_recipient, pool.output_token_metadata);
 
-        // Transfer output token from user to admin
+        // Transfer input token from user to burn vault address
         rKGEN::transfer(user, burn_vault_address, amount);
 
         // Transfer fee to fee recipient (in output token)
@@ -395,7 +438,7 @@ module rkgen::swap {
         assert_pool();
 
         // Calculate fee and output amount
-        let (amount_out, swap_fee_amount, total_fee_amount) = get_sponser_swap_preview(amount, swap_gas_fee_amount);
+        let (amount_out, swap_fee_amount, total_fee_amount) = get_sponsor_swap_preview(amount, swap_gas_fee_amount);
 
         let pool = borrow_global_mut<SwapPool>(@rkgen);
         assert!(!pool.is_paused, ESWAP_PAUSED);
@@ -416,7 +459,7 @@ module rkgen::swap {
         primary_fungible_store::ensure_primary_store_exists(burn_vault_address, pool.input_token_metadata);
         primary_fungible_store::ensure_primary_store_exists(pool.fee_recipient, pool.output_token_metadata);
 
-        // Transfer output token from user to admin
+        // Transfer input token from user to burn vault address
         rKGEN::transfer(user, burn_vault_address, amount);
 
         // Transfer fee and gas_fee to fee recipient (in output token)
@@ -439,7 +482,7 @@ module rkgen::swap {
 
         pool.total_input_token_swapped += amount;
         pool.total_output_token_swapped += amount_out;
-        pool.total_fees_collected += swap_fee_amount;
+        pool.total_fees_collected += total_fee_amount;
 
         event::emit(SponsoredSwap {
             user: user_addr,
@@ -451,24 +494,38 @@ module rkgen::swap {
         });
     }
 
-    // Update the admin address. Can only be called by the current admin.
-    public entry fun update_admin(admin: &signer, new_admin: address) acquires  Admin {
+    // Set the pending admin to the specified new admin. The new admin still needs to accept to become the admin.
+    public entry fun transfer_admin(admin: &signer, new_admin: address) acquires  Admin {
         assert_admin(admin);
-
         let admin_resource = borrow_global_mut<Admin>(@rkgen);
         let old_admin = admin_resource.admin;
-        admin_resource.admin = new_admin;
+        admin_resource.pending_admin = new_admin;
 
-        event::emit(AdminUpdated{
-            old_admin,
-            new_admin,
+        event::emit(TransferAdmin{
+            admin: old_admin,
+            pending_admin: new_admin,
             updated_by: signer::address_of(admin),
         });
     }
+
+    // Accept the admin role. This can only be called by the pending admin.
+    public entry fun accept_admin(pending_admin: &signer) acquires  Admin {
+        assert!(borrow_global<Admin>(@rkgen).pending_admin == signer::address_of(pending_admin), EUNAUTHORIZED);
+        let admin_resource = borrow_global_mut<Admin>(@rkgen);
+        let old_admin = admin_resource.admin;
+        admin_resource.admin = admin_resource.pending_admin;
+        admin_resource.pending_admin = @0x0;
+        event::emit(AcceptAdmin{
+            old_admin,
+            new_admin: admin_resource.pending_admin,
+            updated_by: signer::address_of(pending_admin),
+        });
+    }
+
     // Update the swap rate. Can only be called by the admin.
     public entry fun update_swap_fee_rate(admin: &signer, new_swap_fee_rate: u64) acquires Admin, SwapPool {
         assert_admin(admin);
-        assert!(new_swap_fee_rate <= MAX_FEE_RATE, EINVALID_FEE_RATE);
+        assert!(new_swap_fee_rate < MAX_FEE_RATE, EINVALID_FEE_RATE);
         assert_pool();
 
         let pool = borrow_global_mut<SwapPool>(@rkgen);

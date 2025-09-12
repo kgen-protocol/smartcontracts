@@ -133,7 +133,8 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     )
         OFT(_name, _symbol, _lzEndpoint, _delegate)
         ERC2771Context(_trustedForwarder)
-        Ownable(_delegate) // needed this as internally the oft uses Ownable  class
+        Ownable(_delegate) // needed this as internally the oft uses Ownable  class 
+
         Ownable2Step()
     {
         if (_delegate == address(0)) revert ZeroAddress();
@@ -452,6 +453,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         return super.transferFrom(from, to, amount);
     }
 
+
     // =============================================================
     //                   INTERFACE SUPPORT
     // =============================================================
@@ -461,8 +463,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
-    }
-
+    }  
     // =============================================================
     //                   OWNERSHIP OVERRIDES
     // =============================================================
@@ -482,7 +483,9 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         Ownable2Step._transferOwnership(newOwner);
     }
 
+
     function decimals() public view override returns (uint8) {
         return 8;
     }
 }
+
