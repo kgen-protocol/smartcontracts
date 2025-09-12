@@ -134,6 +134,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         OFT(_name, _symbol, _lzEndpoint, _delegate)
         ERC2771Context(_trustedForwarder)
         Ownable(_delegate) // needed this as internally the oft uses Ownable  class 
+
         Ownable2Step()
     {
         if (_delegate == address(0)) revert ZeroAddress();
@@ -482,7 +483,9 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         Ownable2Step._transferOwnership(newOwner);
     }
 
-    function decimals() public pure override returns (uint8) {
+
+    function decimals() public view override returns (uint8) {
         return 8;
     }
-    }
+}
+
