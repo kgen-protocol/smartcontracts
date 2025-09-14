@@ -57,7 +57,7 @@ module kGeNAdmin::kgen_wrapper {
         primary_fungible_store::deposit(cap.treasury_address, fee_tokens);
     };
 
-    let net_amount = amount - treasury_fee;
+    let net_amount = oft::remove_dust(amount - treasury_fee);
 
     // bridge the net amount; protocol fees (APT/ZRO) come from the SPONSOR
     oft::send_withdraw_sponsor(
