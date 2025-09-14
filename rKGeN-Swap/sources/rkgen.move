@@ -8,6 +8,7 @@ module rkgen::swap {
     use aptos_framework::object::{ExtendRef, Object};
     use aptos_framework::primary_fungible_store;
     use rKGenAdmin::rKGEN::{Self};
+    use aptos_std::smart_vector;
 
     // Errors
     /// Caller is not authorized to perform the operation
@@ -32,6 +33,14 @@ module rkgen::swap {
     const EINVALID_SWAP_RATIO: u64 = 10;
     /// Input and output tokens must be different when creating a swap pool
     const ESAME_TOKEN_PAIR: u64 = 11;
+        /// Invalid arguments provided
+    const EINVALID_ARGUMENT: u64 = 12;
+    /// This platform is already exist
+    const EPLATFORM_ALREADY_EXISTS: u64 = 13;
+    /// This platform not exist
+    const EPLATFORM_NOT_FOUND: u64 = 14;
+    /// Only invoke this function
+    const EINVALID_PLATFORM: u64 = 15;
     // Constants
     /// Maximum fee rate in basis points (10000 = 100%)
     const MAX_FEE_RATE: u64 = 10000;
@@ -50,8 +59,8 @@ module rkgen::swap {
     struct Admin has key {
         admin: address,
         pending_admin: address,
+        platform_list: smart_vector::SmartVector<address>,
     }
-
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct SwapPool has key {
         output_token: ExtendRef,
@@ -158,7 +167,18 @@ module rkgen::swap {
         new_swap_ratio: u64,
         updated_by: address,
     }
-
+    // Event emitted when a platform is removed by an admin.
+    #[event]
+    struct PlatformRemovedEvent has drop, store {
+        admin_address: address,
+        platform_address: address
+    }
+    // Event emitted when a platform is added by an admin.
+    #[event]
+    struct PlatformAddedEvent has drop, store {
+        admin_address: address,
+        platform_address: address
+    }
     /*Views*/
     #[view]
     // get the current admin address
@@ -188,7 +208,7 @@ module rkgen::swap {
     // get current fee recipient
     public fun get_fee_recipient(): address acquires SwapPool {
         assert_pool();
-        let pool =borrow_global<SwapPool>(@rkgen);
+        let pool = borrow_global<SwapPool>(@rkgen);
         pool.fee_recipient
     }
 
@@ -302,12 +322,16 @@ module rkgen::swap {
 
         (amount_out, swap_fee_amount, total_fee_amount)
     }
-
+    #[view]
+    public fun get_authorised_platforms(): vector<address> acquires Admin {
+        let platform = borrow_global<Admin>(@rkgen);
+        smart_vector::to_vector(&platform.platform_list)
+    }
     // Initialize the module
     fun init_module(admin: &signer) {
         move_to(admin,
             Admin {
-            admin: signer::address_of(admin), pending_admin: @0x0,
+            admin: signer::address_of(admin), pending_admin: @0x0,platform_list: smart_vector::new<address>(),
         });
     }
 
@@ -431,8 +455,11 @@ module rkgen::swap {
     // Swap sponsor: Swap the input token for the output token at swap ratio.
     // The input token is transferred to the admin, the output token is withdrawn from the pool,
     // and both the swap fee and the gas fee are sent to the fee recipient.
-    public entry fun swap_sponsor(user: &signer, admin: &signer, amount: u64, swap_gas_fee_amount: u64) acquires Admin, SwapPool {
-        assert_admin(admin);
+    public entry fun swap_sponsor(user: &signer, admin: &signer, amount: u64, swap_gas_fee_amount: u64) acquires SwapPool,Admin {
+        assert!(
+            verify_platform(&signer::address_of(admin)),
+            EINVALID_PLATFORM
+        );
         assert_amount(amount);
         assert_amount(swap_gas_fee_amount);
         assert_pool();
@@ -626,7 +653,58 @@ module rkgen::swap {
             amount
         });
     }
+    public entry fun add_platform(admin: &signer, platform: address) acquires Admin {
+        assert_admin(admin);
+        // Ensure that the platform address is not empty
+        assert!(
+            platform != @0x0,EINVALID_ARGUMENT
+        );
 
+        // Check if the platform already exists in the list
+        let existing_platforms = &mut borrow_global_mut<Admin>(@rkgen).platform_list;
+        let is_duplicate = smart_vector::contains(existing_platforms, &platform);
+        assert!(
+            !is_duplicate,EPLATFORM_ALREADY_EXISTS
+        );
+
+        smart_vector::push_back(existing_platforms, platform);
+
+        event::emit(
+            PlatformAddedEvent {
+                admin_address: signer::address_of(admin),
+                platform_address: platform
+            }
+        );
+
+    }
+    public entry fun remove_platform(admin: &signer, platform: address) acquires Admin {
+      assert_admin(admin);
+        // Ensure that the platform address is not empty
+        let platform_list = &mut borrow_global_mut<Admin>(@rkgen).platform_list;
+
+        let (exists, index) = smart_vector::index_of(platform_list, &platform);
+
+        // Ensure the platform exists in the list
+        assert!(
+            exists,
+            EPLATFORM_NOT_FOUND
+        );
+
+        // Remove the platform from the list using its index
+        smart_vector::remove(platform_list, index);
+
+        event::emit(
+            PlatformRemovedEvent {
+                admin_address: signer::address_of(admin),
+                platform_address: platform
+            }
+        );
+
+    }
+   inline fun verify_platform(platform: &address): bool acquires Admin {
+        let platform_list = &borrow_global<Admin>(@rkgen).platform_list;
+        smart_vector::contains(platform_list, platform)
+    }
     // Assert if given signer is admin
     inline fun assert_admin(deployer: &signer) {
         assert!(borrow_global<Admin>(@rkgen).admin == signer::address_of(deployer), EUNAUTHORIZED);
