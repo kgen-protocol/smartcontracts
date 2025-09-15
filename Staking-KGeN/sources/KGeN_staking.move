@@ -668,10 +668,10 @@ module KGeNAdmin::KGeN_staking {
     ) acquires StakingAPYRange, Admin {
         let admin_address = signer::address_of(admin);
 
-        // Ensure the caller is the admin
+        // Ensure the caller is the platform signer
         assert!(
-            admin_address == get_admin(),
-            error::permission_denied(ENOT_ADMIN)
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
         );
 
         // Ensure all input vectors have the same length
@@ -742,8 +742,8 @@ module KGeNAdmin::KGeN_staking {
         admin: &signer, range_id: u64, new_apy: u64
     ) acquires Admin, StakingAPYRange {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ENOT_ADMIN)
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
         );
 
         let apy_table = &mut borrow_global_mut<StakingAPYRange>(@KGeNAdmin).ranges;
