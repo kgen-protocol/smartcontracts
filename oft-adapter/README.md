@@ -303,12 +303,12 @@ Note: The object owner has the upgrade authority for the Object.
 ```bash
 pnpm run lz:sdk:move:send-from-move-oft \
   --oapp-config move.layerzero.config.ts \
-  --amount-ld <amount-to-send> \
-  --min-amount-ld <minimum-amount-to-receive> \
-  --src-address <your-move-account-address> \
-  --to-address <destination-evm-address> \
+  --amount-ld 10000 \
+  --min-amount-ld 9500 \
+  --src-address <your-aptos-account-address> \
+  --to-address <destination-bsc-address> \
   --gas-limit 400000 \
-  --dst-eid <destination-chain-eid>
+  --dst-eid 40102
 ```
 
 ### Send from EVM to Move VM
