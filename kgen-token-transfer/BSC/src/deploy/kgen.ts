@@ -30,18 +30,18 @@ const deployContract: DeployFunction = async function (
   console.log("KgenOapp", KgenOapp.address);
 
   // Step-03 Deploy  Proxy Contract
-  // await deploy(KgenStakingProxy, {
-  //   from: deployer.address,
-  //   args: [KgenOapp.address, deployer.address, "0x"],
-  //   log: true,
-  //   deterministicDeployment: false,
-  // });
-  // kgenProxys = await get(KgenStakingProxy);
+  await deploy(KgenStakingProxy, {
+    from: deployer.address,
+    args: [KgenOapp.address, deployer.address, "0x"],
+    log: true,
+    deterministicDeployment: false,
+  });
+  kgenProxys = await get(KgenStakingProxy);
 
-  // console.table({
-  //   MazeNFTImplementation: KgenOapp.address,
-  //   MazeProxy: kgenProxys.address,
-  // }); 
+  console.table({
+    MazeNFTImplementation: KgenOapp.address,
+    MazeProxy: kgenProxys.address,
+  }); 
 //   const MazeModuleProxy = await ethers.getContractAt(
 //     "SD2023",
 //     kgenProxys.address,
@@ -51,13 +51,13 @@ const deployContract: DeployFunction = async function (
 // console.log(data)
   // console.log(await MazeNFT.methods.owner().call()) 
 
-  // await verifyContract(hre, kgenProxys.address, [
-  //   KgenOapp.address,
-  //   deployer.address,
-  //   "0x",
-  // ],
-  // `contracts/Proxy.sol:${KgenStakingProxy}`
-  // );
+  await verifyContract(hre, kgenProxys.address, [
+    KgenOapp.address,
+    deployer.address,
+    "0x",
+  ],
+  `contracts/Proxy.sol:${KgenStakingProxy}`
+  );
   await verifyContract(hre, KgenOapp.address, [],  `contracts/KgenTokenWrapper.sol:${KgenStaking}`);
 };
 
