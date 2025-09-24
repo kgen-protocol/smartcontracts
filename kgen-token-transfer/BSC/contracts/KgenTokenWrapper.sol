@@ -24,6 +24,7 @@ contract KgenTokenWrapper is
     error InvalidAddress();
     error ZeroAmount();
     error TokenAlreadyWhitelisted();
+    error  InvalidFee();
 
     // ------------------------------ Storage ------------------------------
     address public KGEN_TDS_FEE_TREASURY_ADDRESS;
@@ -38,6 +39,16 @@ contract KgenTokenWrapper is
         uint256 amount,
         uint256 gasFee
     );
+    event TokenTransferredWithTDS(
+    address indexed sender,
+    address indexed recipient,
+    address indexed token,
+    uint256 grossAmount,     // total amount user intended to spend
+    uint256 gasFee,          // deducted as gas fee
+    uint256 tdsFee,          // deducted as TDS fee
+    uint256 netAmount        // actually received by recipient
+);
+
     event KgenTdsFeeTreasuryUpdated(address indexed previous, address indexed current);
     event KgenGasFeeTreasuryUpdated(address indexed previous, address indexed current);
     event TokenWhitelisted(address indexed tokenAddress);
@@ -99,39 +110,65 @@ contract KgenTokenWrapper is
         emit TokenTransferred(sender, recipientAddress, treasury, tokenAddress, amount, gasFee);
     }
 
-    function transferKgenTokenWithTDS(
-        address tokenAddress,
-        address recipientAddress,
-        uint256 gasFee,
-        uint256 tdsFee,
-        uint256 amount
-    ) external nonReentrant {
-        if (tokenAddress == address(0)) revert InvalidAddress();
-        if (recipientAddress == address(0)) revert InvalidAddress();
-        if (amount == 0) revert ZeroAmount();
+function transferKgenTokenWithTDS(
+    address tokenAddress,
+    address recipientAddress,
+    uint256 gasFee,
+    uint256 tdsFee,
+    uint256 amount
+) external nonReentrant {
+    if (tokenAddress == address(0)) revert InvalidAddress();
+    if (recipientAddress == address(0)) revert InvalidAddress();
+    if (amount == 0) revert ZeroAmount();
 
-        IERC20 token = IERC20(tokenAddress);
-        address sender = _msgSender();
+    IERC20 token = IERC20(tokenAddress);
+    address sender = _msgSender();
 
-        // FIX: include tdsFee in required total
-        uint256 totalRequired = amount + gasFee + tdsFee;
-        if (token.balanceOf(sender) < totalRequired) revert InsufficientBalance();
+    // Ensure fees are valid
+    if (gasFee + tdsFee > amount) revert InvalidFee();
 
-        // Minimal guard: treasuries must be set if fees are non-zero
-        if (gasFee > 0) {
-            if (KGEN_GAS_FEE_TREASURY_ADDRESS == address(0)) revert InvalidAddress();
-            require(token.transferFrom(sender, KGEN_GAS_FEE_TREASURY_ADDRESS, gasFee), "Gas fee transfer failed");
-        }
-        if (tdsFee > 0) {
-            if (KGEN_TDS_FEE_TREASURY_ADDRESS == address(0)) revert InvalidAddress();
-            require(token.transferFrom(sender, KGEN_TDS_FEE_TREASURY_ADDRESS, tdsFee), "TDS fee transfer failed");
-        }
+    // Net amount to recipient
+    uint256 amountToTransfer = amount - gasFee - tdsFee;
 
-        // NB: The user must pre-approve this contract for `totalRequired`.
-        require(token.transferFrom(sender, recipientAddress, amount), "Transfer failed");
+    // Require sender has at least total (gross) amount
+    if (token.balanceOf(sender) < amount) revert InsufficientBalance();
 
-        emit TokenTransferred(sender, recipientAddress, KGEN_GAS_FEE_TREASURY_ADDRESS, tokenAddress, amount, gasFee);
+    // Require correct approvals (sender must approve at least `amount`)
+    // Perform transfers
+    if (gasFee > 0) {
+        if (KGEN_GAS_FEE_TREASURY_ADDRESS == address(0)) revert InvalidAddress();
+        require(
+            token.transferFrom(sender, KGEN_GAS_FEE_TREASURY_ADDRESS, gasFee),
+            "Gas fee transfer failed"
+        );
     }
+
+    if (tdsFee > 0) {
+        if (KGEN_TDS_FEE_TREASURY_ADDRESS == address(0)) revert InvalidAddress();
+        require(
+            token.transferFrom(sender, KGEN_TDS_FEE_TREASURY_ADDRESS, tdsFee),
+            "TDS fee transfer failed"
+        );
+    }
+
+    if (amountToTransfer > 0) {
+        require(
+            token.transferFrom(sender, recipientAddress, amountToTransfer),
+            "Recipient transfer failed"
+        );
+    }
+
+    emit TokenTransferredWithTDS(
+        sender,
+        recipientAddress,
+        tokenAddress,
+        amount,          
+        gasFee,
+        tdsFee,
+        amountToTransfer 
+    );
+}
+
     function setKgenTdsFeeTreasury(address newTreasury) external onlyRole(ADMIN_ROLE) {
         if (newTreasury == address(0)) revert InvalidAddress();
         address prev = KGEN_TDS_FEE_TREASURY_ADDRESS;
