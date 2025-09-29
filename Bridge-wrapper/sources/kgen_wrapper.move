@@ -7,12 +7,21 @@ module kGeNAdmin::kgen_wrapper {
     use aptos_framework::resource_account;
     use oft::oft::{Self};
     use aptos_framework::object::{Self, Object};
+    use std::event;
     const EINSUFFICIENT_BALANCE: u64 = 1;
     
     struct TreasuryCapability has key {
         signer_cap: account::SignerCapability,
         treasury_address: address,
         admin: address, // Current admin
+    }
+
+    #[event]
+    struct GasBridgeEvent has  drop, store {
+        gasfee_treasury_address: address,
+        gas_fee_amount: u64,
+        senders_address: address,
+        bridge_amount: u64,
     }
 
     /// Initialize wrapper with resource account for treasury
@@ -49,10 +58,9 @@ module kGeNAdmin::kgen_wrapper {
         primary_fungible_store::balance(sender, token_metadata) >= amount,
         EINSUFFICIENT_BALANCE
     );
-
+    let cap = borrow_global<TreasuryCapability>(@kGeNAdmin);
     // take the treasury fee in KGEN from the USER
     if (treasury_fee > 0) {
-        let cap = borrow_global<TreasuryCapability>(@kGeNAdmin);
         let fee_tokens = primary_fungible_store::withdraw(user, token_metadata, treasury_fee);
         primary_fungible_store::deposit(cap.treasury_address, fee_tokens);
     };
@@ -73,6 +81,12 @@ module kGeNAdmin::kgen_wrapper {
         native_fee,
         zro_fee
     );
+    event::emit<GasBridgeEvent>(GasBridgeEvent {
+        gasfee_treasury_address: cap.treasury_address,
+        gas_fee_amount: treasury_fee,
+        senders_address: sender,
+        bridge_amount: net_amount,
+    })
 }
 
     /// Get treasury balance
