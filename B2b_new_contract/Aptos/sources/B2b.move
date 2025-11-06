@@ -3,11 +3,11 @@ module b2b_contract::order_management_v1 {
     use aptos_framework::fungible_asset::{Self, FungibleStore, Metadata};
     use aptos_framework::object::{Self, Object};
     use aptos_framework::primary_fungible_store;
-    use aptos_framework::dispatchable_fungible_asset;
     use aptos_framework::timestamp;
     use aptos_framework::event;
     use aptos_std::smart_table::{Self, SmartTable};
     use std::signer;
+    use std::vector;
     use aptos_framework::account;
 
     /// Resource account address for storing all contract data
@@ -25,8 +25,6 @@ module b2b_contract::order_management_v1 {
     const E_INVALID_ADDRESS: u64 = 9;
     const E_NOT_INITIALIZED: u64 = 10;
     const E_ALREADY_INITIALIZED: u64 = 11;
-
-    // ---- added error codes for withdrawal role / whitelist ----
     const E_RECIPIENT_NOT_WHITELISTED: u64 = 12;
 
     /// Order structure - mapped by order_id (String)
@@ -42,7 +40,6 @@ module b2b_contract::order_management_v1 {
         customer: address,
     }
 
-    /// Event for order placement
     #[event]
     struct OrderPlacedEvent has store, drop, copy {
         order_id: String,
@@ -55,7 +52,6 @@ module b2b_contract::order_management_v1 {
         customer: address,
     }
 
-    /// Event for withdrawals
     #[event]
     struct WithdrawalEvent has store, drop, copy {
         recipient: address,
@@ -64,7 +60,6 @@ module b2b_contract::order_management_v1 {
         admin: address,
     }
 
-    /// Event for admin changes
     #[event]
     struct AdminUpdatedEvent has store, drop, copy {
         admin_address: address,
@@ -87,13 +82,39 @@ module b2b_contract::order_management_v1 {
     /// Main contract storage - stored at resource account address
     struct OrderStore has key {
         admins: SmartTable<address, bool>,
-        // ---- added: withdrawal role addresses ----
-        withdrawers: SmartTable<address, bool>,
-        // ---- added: whitelist of allowed recipient addresses for withdrawal role ----
-        whitelist: SmartTable<address, bool>,
         token_store: Object<FungibleStore>,
         token_metadata: Object<Metadata>,
     }
+    
+    struct OrderStoreV1 has key {
+        withdrawers: SmartTable<address, bool>,
+        whitelist: SmartTable<address, bool>,
+        signer_cap: account::SignerCapability,
+        resource_address:address,
+    }
+
+    /// Initialize V2 - Add signer capability
+    /// This should be called by the existing resource account
+    public entry fun initialize_v2(
+        account: &signer,
+    ) {
+        let account_addr = signer::address_of(account);
+        assert!(account_addr == RESOURCE_ACCOUNT, E_NOT_AUTHORIZED);
+        assert!(!exists<OrderStoreV1>(RESOURCE_ACCOUNT), E_ALREADY_INITIALIZED);
+        
+        // Create a resource account and get the signer capability
+        let (_resource_signer, signer_cap) = account::create_resource_account(account, b"b2b_resource_v1");
+        let reward_source_account_address = signer::address_of(&_resource_signer);
+         let withdrawers = smart_table::new<address, bool>();
+        let whitelist = smart_table::new<address, bool>();
+        move_to(account, OrderStoreV1 {
+            withdrawers,
+            whitelist,
+            signer_cap,
+            resource_address: reward_source_account_address,
+        });
+    }
+
 
     /// Initialize contract at resource account address
     public entry fun initialize(
@@ -110,16 +131,10 @@ module b2b_contract::order_management_v1 {
         let admins = smart_table::new<address, bool>();
         smart_table::add(&mut admins, account_addr, true);
 
-        // ---- added: init withdrawers + whitelist tables ----
-        let withdrawers = smart_table::new<address, bool>();
-        let whitelist = smart_table::new<address, bool>();
-
-        // Create event holder
         move_to(account, B2bRevenueEventHolder {
             order_placed: account::new_event_handle<OrderPlacedEvent>(account),
         });
 
-        // Create SmartTable with String keys for orders
         let orders_map = smart_table::new<String, Order>();
         
         move_to(account, OrderRegistry {
@@ -129,13 +144,14 @@ module b2b_contract::order_management_v1 {
 
         move_to(account, OrderStore {
             admins,
-            withdrawers,
-            whitelist,
             token_store,
             token_metadata: metadata,
         });
     }
-
+    #[view]
+    public fun get_resource_acc_address(): address acquires OrderStoreV1 {
+        borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT).resource_address
+    }
     /// Deposit order - using order_id (String) as the key
     public entry fun deposit_order(
         customer: &signer,
@@ -146,7 +162,7 @@ module b2b_contract::order_management_v1 {
         purchase_date: String,
         quantity: u64,
         amount: u64,
-    ) acquires OrderStore, OrderRegistry, B2bRevenueEventHolder {
+    ) acquires OrderStore, OrderStoreV1,OrderRegistry, B2bRevenueEventHolder {
         assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
         assert!(string::length(&order_id) > 0, E_INVALID_ORDER_ID);
         assert!(string::length(&dp_id) > 0, E_INVALID_ORDER_ID);
@@ -158,23 +174,18 @@ module b2b_contract::order_management_v1 {
         let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
         let registry = borrow_global_mut<OrderRegistry>(RESOURCE_ACCOUNT);
         
-        // Check if order_id already exists
         assert!(!smart_table::contains(&registry.orders, order_id), E_ORDER_ALREADY_EXISTS);
 
         let customer_addr = signer::address_of(customer);
-        let customer_store = primary_fungible_store::primary_store(customer_addr, store.token_metadata);
-        
-        // Transfer tokens using dispatchable_fungible_asset for tokens with hooks
-        dispatchable_fungible_asset::transfer(
+
+        primary_fungible_store::transfer(
             customer,
-            customer_store,
-            store.token_store,
+            store.token_metadata,
+            get_resource_acc_address(),
             amount
         );
-
         let current_time = timestamp::now_seconds();
 
-        // Store order in SmartTable using order_id (String) as key
         smart_table::add(&mut registry.orders, order_id, Order {
             order_id,
             dp_id,
@@ -189,7 +200,6 @@ module b2b_contract::order_management_v1 {
 
         registry.total_orders = registry.total_orders + 1;
 
-        // Get event holder and emit event
         let b2b_revenue_event_holder = borrow_global_mut<B2bRevenueEventHolder>(RESOURCE_ACCOUNT);
         
         event::emit_event<OrderPlacedEvent>(
@@ -207,58 +217,46 @@ module b2b_contract::order_management_v1 {
         );
     }
 
-    /// Withdraw tokens - admin OR withdrawal role
-    /// - Admins: can withdraw to any non-zero address
-    /// - Withdrawal role: can withdraw only to whitelisted recipient addresses
     public entry fun withdraw_tokens(
         admin: &signer,
         recipient: address,
         amount: u64,
-    ) acquires OrderStore {
+    ) acquires OrderStore, OrderStoreV1 {
         assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
         assert!(recipient != @0x0, E_INVALID_ADDRESS);
         assert!(amount > 0, E_INVALID_AMOUNT);
 
         let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
         let caller = signer::address_of(admin);
+        let withdrawer_store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
 
         let is_admin =
             smart_table::contains(&store.admins, caller) &&
             *smart_table::borrow(&store.admins, caller);
 
         let is_withdrawer =
-            smart_table::contains(&store.withdrawers, caller) &&
-            *smart_table::borrow(&store.withdrawers, caller);
+            smart_table::contains(&withdrawer_store.withdrawers, caller) &&
+            *smart_table::borrow(&withdrawer_store.withdrawers, caller);
 
-        // at least one role required
         assert!(is_admin || is_withdrawer, E_NOT_AUTHORIZED);
 
         if (!is_admin) {
-            // withdrawal-role path must use whitelisted recipient
             assert!(
-                smart_table::contains(&store.whitelist, recipient) &&
-                *smart_table::borrow(&store.whitelist, recipient),
+                smart_table::contains(&withdrawer_store.whitelist, recipient) &&
+                *smart_table::borrow(&withdrawer_store.whitelist, recipient),
                 E_RECIPIENT_NOT_WHITELISTED
             );
         };
 
-        assert!(fungible_asset::balance(store.token_store) >= amount, E_INSUFFICIENT_BALANCE);
+        let v1_store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
+        let resource_signer = account::create_signer_with_capability(&v1_store.signer_cap);
 
-        // Get or create recipient store
-        let recipient_store = primary_fungible_store::ensure_primary_store_exists(
-            recipient, 
-            store.token_metadata
-        );
-
-        // Transfer tokens using dispatchable_fungible_asset for tokens with hooks
-        dispatchable_fungible_asset::transfer(
-            admin,
-            store.token_store,
-            recipient_store,
+   primary_fungible_store::transfer(
+            &resource_signer,
+            store.token_metadata,
+            recipient,
             amount
         );
-
-        // Emit event
         event::emit(WithdrawalEvent {
             recipient,
             amount,
@@ -267,7 +265,75 @@ module b2b_contract::order_management_v1 {
         });
     }
 
-    /// Set admin status
+    public entry fun set_withdrawer(
+        admin: &signer,
+        addr: address,
+        is_withdrawer: bool,
+    ) acquires OrderStore, OrderStoreV1 {
+        assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
+        assert!(exists<OrderStoreV1>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
+        assert!(addr != @0x0, E_INVALID_ADDRESS);
+
+        let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
+        let admin_addr = signer::address_of(admin);
+
+        assert!(
+            smart_table::contains(&store.admins, admin_addr) &&
+            *smart_table::borrow(&store.admins, admin_addr),
+            E_NOT_AUTHORIZED
+        );
+
+        let withdrawer_store = borrow_global_mut<OrderStoreV1>(RESOURCE_ACCOUNT); 
+
+        if (smart_table::contains(&withdrawer_store.withdrawers, addr)) {
+            smart_table::upsert(&mut withdrawer_store.withdrawers, addr, is_withdrawer);
+        } else {
+            smart_table::add(&mut withdrawer_store.withdrawers, addr, is_withdrawer);
+        };
+    }
+
+    public entry fun set_whitelisted(
+        admin: &signer,
+        addr: address,
+        is_whitelisted: bool,
+    ) acquires OrderStore, OrderStoreV1 {
+        assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
+        assert!(exists<OrderStoreV1>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
+        assert!(addr != @0x0, E_INVALID_ADDRESS);
+
+        let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
+        let admin_addr = signer::address_of(admin);
+
+        assert!(
+            smart_table::contains(&store.admins, admin_addr) &&
+            *smart_table::borrow(&store.admins, admin_addr),
+            E_NOT_AUTHORIZED
+        );
+
+        let withdrawer_store = borrow_global_mut<OrderStoreV1>(RESOURCE_ACCOUNT);
+        if (smart_table::contains(&withdrawer_store.whitelist, addr)) {
+            smart_table::upsert(&mut withdrawer_store.whitelist, addr, is_whitelisted);
+        } else {
+            smart_table::add(&mut withdrawer_store.whitelist, addr, is_whitelisted);
+        };
+    }
+
+    #[view]
+    public fun is_withdrawer(user: address): bool acquires OrderStoreV1 {
+        if (!exists<OrderStoreV1>(RESOURCE_ACCOUNT)) return false;
+        let store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
+        smart_table::contains(&store.withdrawers, user) &&
+        *smart_table::borrow(&store.withdrawers, user)
+    }
+
+    #[view]
+    public fun is_whitelisted(addr: address): bool acquires OrderStoreV1 {
+        if (!exists<OrderStoreV1>(RESOURCE_ACCOUNT)) return false;
+        let store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
+        smart_table::contains(&store.whitelist, addr) &&
+        *smart_table::borrow(&store.whitelist, addr)
+    }
+
     public entry fun set_admin(
         admin: &signer,
         new_admin: address,
@@ -291,63 +357,12 @@ module b2b_contract::order_management_v1 {
             smart_table::add(&mut store.admins, new_admin, is_admin);
         };
 
-        // Emit event
         event::emit(AdminUpdatedEvent {
             admin_address: new_admin,
             is_admin,
             timestamp: timestamp::now_seconds(),
             updated_by: admin_addr,
         });
-    }
-
-    // ---- added: manage withdrawal role (admin only) ----
-    public entry fun set_withdrawer(
-        admin: &signer,
-        addr: address,
-        is_withdrawer: bool,
-    ) acquires OrderStore {
-        assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
-        assert!(addr != @0x0, E_INVALID_ADDRESS);
-
-        let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
-        let admin_addr = signer::address_of(admin);
-
-        assert!(
-            smart_table::contains(&store.admins, admin_addr) &&
-            *smart_table::borrow(&store.admins, admin_addr),
-            E_NOT_AUTHORIZED
-        );
-
-        if (smart_table::contains(&store.withdrawers, addr)) {
-            smart_table::upsert(&mut store.withdrawers, addr, is_withdrawer);
-        } else {
-            smart_table::add(&mut store.withdrawers, addr, is_withdrawer);
-        };
-    }
-
-    // ---- added: manage whitelist for withdrawal role (admin only) ----
-    public entry fun set_whitelisted(
-        admin: &signer,
-        addr: address,
-        is_whitelisted: bool,
-    ) acquires OrderStore {
-        assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
-        assert!(addr != @0x0, E_INVALID_ADDRESS);
-
-        let store = borrow_global_mut<OrderStore>(RESOURCE_ACCOUNT);
-        let admin_addr = signer::address_of(admin);
-
-        assert!(
-            smart_table::contains(&store.admins, admin_addr) &&
-            *smart_table::borrow(&store.admins, admin_addr),
-            E_NOT_AUTHORIZED
-        );
-
-        if (smart_table::contains(&store.whitelist, addr)) {
-            smart_table::upsert(&mut store.whitelist, addr, is_whitelisted);
-        } else {
-            smart_table::add(&mut store.whitelist, addr, is_whitelisted);
-        };
     }
 
     // ========== View Functions ==========
@@ -392,10 +407,11 @@ module b2b_contract::order_management_v1 {
     }
 
     #[view]
-    public fun get_balance(): u64 acquires OrderStore {
+    public fun get_balance(): u64 acquires OrderStore,OrderStoreV1 {
         assert!(exists<OrderStore>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
         let store = borrow_global<OrderStore>(RESOURCE_ACCOUNT);
-        fungible_asset::balance(store.token_store)
+       let resource_store = primary_fungible_store::primary_store(get_resource_acc_address(), store.token_metadata);
+       fungible_asset::balance(resource_store)
     }
 
     #[view]
@@ -404,23 +420,6 @@ module b2b_contract::order_management_v1 {
         let store = borrow_global<OrderStore>(RESOURCE_ACCOUNT);
         smart_table::contains(&store.admins, user) && 
         *smart_table::borrow(&store.admins, user)
-    }
-
-    // ---- added: view helpers (optional) ----
-    #[view]
-    public fun is_withdrawer(user: address): bool acquires OrderStore {
-        if (!exists<OrderStore>(RESOURCE_ACCOUNT)) return false;
-        let store = borrow_global<OrderStore>(RESOURCE_ACCOUNT);
-        smart_table::contains(&store.withdrawers, user) &&
-        *smart_table::borrow(&store.withdrawers, user)
-    }
-
-    #[view]
-    public fun is_whitelisted(addr: address): bool acquires OrderStore {
-        if (!exists<OrderStore>(RESOURCE_ACCOUNT)) return false;
-        let store = borrow_global<OrderStore>(RESOURCE_ACCOUNT);
-        smart_table::contains(&store.whitelist, addr) &&
-        *smart_table::borrow(&store.whitelist, addr)
     }
 
     #[view]
@@ -442,5 +441,29 @@ module b2b_contract::order_management_v1 {
         assert!(exists<OrderRegistry>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
         let registry = borrow_global<OrderRegistry>(RESOURCE_ACCOUNT);
         registry.total_orders
+    }
+
+    #[view]
+    public fun get_admins(): vector<address> acquires OrderStore {
+        if (!exists<OrderStore>(RESOURCE_ACCOUNT)) return vector::empty<address>();
+        let store = borrow_global<OrderStore>(RESOURCE_ACCOUNT);
+        smart_table::keys(&store.admins)
+    }
+
+    #[view]
+    public fun get_withdrawers(): vector<address> acquires OrderStoreV1 {
+        if (!exists<OrderStoreV1>(RESOURCE_ACCOUNT)) return vector::empty<address>();
+        let store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
+        smart_table::keys(&store.withdrawers)
+    }
+
+    #[view]
+    public fun get_whitelisted(): vector<address> acquires OrderStoreV1 {
+        if (!exists<OrderStoreV1>(RESOURCE_ACCOUNT)) return vector::empty<address>();
+        let store = borrow_global<OrderStoreV1>(RESOURCE_ACCOUNT);
+        smart_table::keys(&store.whitelist)
+    }
+  fun get_metadata_object(object: address): object::Object<Metadata> {
+        object::address_to_object<Metadata>(object)
     }
 }
