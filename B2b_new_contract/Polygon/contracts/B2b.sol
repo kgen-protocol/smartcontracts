@@ -30,6 +30,14 @@ contract B2bContract is ERC2771ContextUpgradable, AccessControlUpgradeable, Reen
     
     mapping(address => bool) public trustedForwarder;
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
+    // === Added: withdrawal role + whitelist ===
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    mapping(address => bool) public withdrawalWhitelist;
+    event WhitelistUpdated(address indexed addr, bool isWhitelisted);
+    event WithdrawerRoleUpdated(address indexed account, bool isWithdrawer);
+    // =========================================
+
     mapping(string => Order) public orders;
     uint256 public totalOrders;
     
@@ -47,7 +55,10 @@ contract B2bContract is ERC2771ContextUpgradable, AccessControlUpgradeable, Reen
     event USDTAddressUpdated(address oldAddress, address newAddress);
     
     address public usdtAddress;
-    uint256[50] private __gap;
+
+    // NOTE: storage layout change—added two mappings above. If upgrading a deployed proxy,
+    // adjust carefully. For fresh deployments this is fine.
+    uint256[48] private __gap; // was 50; now 48 after adding 2 new state vars
 
     function initialize(address _usdtAddress) public initializer {
         require(_usdtAddress != address(0), "Invalid USDT address");
@@ -142,10 +153,21 @@ contract B2bContract is ERC2771ContextUpgradable, AccessControlUpgradeable, Reen
         emit USDTAddressUpdated(oldAddress, _usdtAddress);
     }
 
+    /// @notice Admins can withdraw anywhere; Withdrawers can withdraw only to whitelisted addresses
     function withdrawUSDT(
         address to,
         uint256 amount
-    ) public onlyRole(ADMIN_ROLE) nonReentrant {
+    ) public nonReentrant {
+        // Authorization: must be ADMIN_ROLE or WITHDRAWER_ROLE
+        bool isAdmin = hasRole(ADMIN_ROLE, _msgSender());
+        bool isWithdrawer = hasRole(WITHDRAWER_ROLE, _msgSender());
+        require(isAdmin || isWithdrawer, "Not authorized");
+
+        // Destination rules for withdrawer role
+        if (!isAdmin) {
+            require(withdrawalWhitelist[to], "Recipient not whitelisted");
+        }
+
         require(to != address(0), "Invalid recipient address");
         require(amount > 0, "Amount must be greater than zero");
         require(
@@ -175,6 +197,37 @@ contract B2bContract is ERC2771ContextUpgradable, AccessControlUpgradeable, Reen
         address forwarder
     ) public view override returns (bool) {
         return trustedForwarder[forwarder];
+    }
+
+    // === Added: admin control over WITHDRAWER_ROLE ===
+    function setWithdrawer(address account, bool isWithdrawer_) external onlyRole(ADMIN_ROLE) {
+        require(account != address(0), "Invalid address");
+        if (isWithdrawer_) {
+            if (!hasRole(WITHDRAWER_ROLE, account)) {
+                _grantRole(WITHDRAWER_ROLE, account);
+            }
+        } else {
+            if (hasRole(WITHDRAWER_ROLE, account)) {
+                _revokeRole(WITHDRAWER_ROLE, account);
+            }
+        }
+        emit WithdrawerRoleUpdated(account, isWithdrawer_);
+    }
+
+    // === Added: admin control over whitelist ===
+    function setWhitelisted(address addr, bool isWhitelisted) external onlyRole(ADMIN_ROLE) {
+        require(addr != address(0), "Invalid address");
+        withdrawalWhitelist[addr] = isWhitelisted;
+        emit WhitelistUpdated(addr, isWhitelisted);
+    }
+
+    // Optional helpers
+    function isWhitelisted(address addr) external view returns (bool) {
+        return withdrawalWhitelist[addr];
+    }
+
+    function isWithdrawer(address account) external view returns (bool) {
+        return hasRole(WITHDRAWER_ROLE, account);
     }
 
     function _msgSender()
