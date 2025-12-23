@@ -453,11 +453,11 @@ module rkgen::swap {
     //     });
     // }
 
+        const ESWAP_FUNCTION_DEPRECATED: u64 = 16;
 
-    public entry fun swap(user: &signer, amount: u64)  {
-    // Function disabled intentionally
-    abort 0; // Immediately aborts any call to this function
-}
+        public entry fun swap(_user: &signer, _amount: u64) {
+                abort ESWAP_FUNCTION_DEPRECATED
+            }
 
     public entry fun swap_sponsor(user: &signer, admin: &signer, amount: u64, swap_gas_fee_amount: u64) acquires SwapPool,Admin {
         assert!(
