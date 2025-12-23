@@ -454,7 +454,7 @@ module rkgen::swap {
     // }
 
 
-    public entry fun swap(user: &signer, amount: u64) acquires SwapPool {
+    public entry fun swap(user: &signer, amount: u64)  {
     // Function disabled intentionally
     abort 0; // Immediately aborts any call to this function
 }
