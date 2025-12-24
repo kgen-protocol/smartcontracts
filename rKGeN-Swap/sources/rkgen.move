@@ -458,7 +458,9 @@ module rkgen::swap {
         public entry fun swap(_user: &signer, _amount: u64) {
                 abort ESWAP_FUNCTION_DEPRECATED
             }
-
+   // Swap sponsor: Swap the input token for the output token at swap ratio.
+    // The input token is transferred to the admin, the output token is withdrawn from the pool,
+    // and both the swap fee and the gas fee are sent to the fee recipient.
     public entry fun swap_sponsor(user: &signer, admin: &signer, amount: u64, swap_gas_fee_amount: u64) acquires SwapPool,Admin {
         assert!(
             verify_platform(&signer::address_of(admin)),
