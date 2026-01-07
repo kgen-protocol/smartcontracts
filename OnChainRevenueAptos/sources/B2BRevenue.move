@@ -1,8 +1,8 @@
 module b2b::settlement_v1 {
     use std::string::{Self, String};
-    use aptos_std::signer;
     use std::bcs;
-    use std::vector; 
+    use std::vector;
+    use std::signer;
     use aptos_framework::fungible_asset::{Metadata};
     use aptos_framework::primary_fungible_store;
     use aptos_framework::object::{Self, Object, ExtendRef};
@@ -15,11 +15,11 @@ module b2b::settlement_v1 {
     /// ================================
     const E_NOT_ADMIN: u64 = 1;
     const E_ALREADY_EXISTS: u64 = 2;
-    const E_NOT_FOUND: u64 = 3;
     const E_INACTIVE: u64 = 4;
     const E_INVALID_AMOUNT: u64 = 5;
     const E_NOT_SUPER_ADMIN: u64 = 7;
     const E_NOT_PENDING_ADMIN: u64 = 8;
+    const E_ORDER_ALREADY_PROCESSED: u64 = 9;
 
     /// ================================
     /// EVENTS 
@@ -64,6 +64,8 @@ module b2b::settlement_v1 {
         revenue_vault: address,
         partners: SmartTable<u64, PartnerInfo>,
         bank_accounts: SmartTable<String, BankAccountInfo>,
+        processed_orders: SmartTable<String, bool>,
+
         dp_ids: vector<u64>,
         bank_ids: vector<String>,
     }
@@ -71,7 +73,7 @@ module b2b::settlement_v1 {
     /// ================================
     /// INITIALIZATION
     /// ================================
-    public entry fun init_module(deployer: &signer, revenue_vault: address) {
+    fun init_module(deployer: &signer) {
         let deployer_addr = signer::address_of(deployer);
         if (exists<Registry>(deployer_addr)) return;
 
@@ -79,12 +81,21 @@ module b2b::settlement_v1 {
             super_admin: deployer_addr,
             pending_super_admin: @0x0,
             admin: deployer_addr,
-            revenue_vault,
+            revenue_vault: @RevenueContractV2, // Revenue goes to RevenueContractV2
             partners: smart_table::new(),
             bank_accounts: smart_table::new(),
-            dp_ids: vector::empty<u64>(),
-            bank_ids: vector::empty<String>(),
+            processed_orders: smart_table::new(),
+            dp_ids: vector::empty(),
+            bank_ids: vector::empty()
         });
+    }
+
+    /// Set revenue vault address (can be called after deployment)
+    public entry fun set_revenue_vault(admin: &signer, revenue_vault: address) acquires Registry {
+        let registry = borrow_global_mut<Registry>(@b2b);
+        let caller_addr = signer::address_of(admin);
+        assert!(caller_addr == registry.super_admin, E_NOT_SUPER_ADMIN);
+        registry.revenue_vault = revenue_vault;
     }
 
     /// ================================
@@ -113,6 +124,32 @@ module b2b::settlement_v1 {
         registry.pending_super_admin = @0x0;
         event::emit(SuperAdminAccepted { new_super: caller_addr });
     }
+    /// ================================
+    /// FREEZE / UNFREEZE
+    /// ================================
+    public entry fun set_partner_status(
+        admin: &signer,
+        dp_id: u64,
+        active: bool
+    ) acquires Registry {
+        let registry = borrow_global_mut<Registry>(@b2b);
+        assert!(signer::address_of(admin) == registry.admin, E_NOT_ADMIN);
+
+        let partner = smart_table::borrow_mut(&mut registry.partners, dp_id);
+        partner.is_active = active;
+    }
+
+    public entry fun set_bank_status(
+        admin: &signer,
+        bank_id: String,
+        active: bool
+    ) acquires Registry {
+        let registry = borrow_global_mut<Registry>(@b2b);
+        assert!(signer::address_of(admin) == registry.admin, E_NOT_ADMIN);
+
+        let bank = smart_table::borrow_mut(&mut registry.bank_accounts, bank_id);
+        bank.is_active = active;
+    }
 
     /// ================================
     /// BANK WITHDRAWAL (Super Admin Only)
@@ -127,7 +164,11 @@ module b2b::settlement_v1 {
         let registry = borrow_global<Registry>(@b2b);
         assert!(signer::address_of(super_admin) == registry.super_admin, E_NOT_SUPER_ADMIN);
 
+         assert!(amount > 0, E_INVALID_AMOUNT);
+
         let bank = smart_table::borrow(&registry.bank_accounts, bank_id);
+        assert!(bank.is_active, E_INACTIVE);
+
         let bank_signer = object::generate_signer_for_extending(&bank.extend_ref);
 
         let fa = primary_fungible_store::withdraw(&bank_signer, asset, amount);
@@ -147,6 +188,11 @@ module b2b::settlement_v1 {
     ) acquires Registry {
         let registry = borrow_global_mut<Registry>(@b2b);
         assert!(signer::address_of(admin) == registry.admin, E_NOT_ADMIN);
+
+        assert!(
+            !smart_table::contains(&registry.partners, dp_id),
+            E_ALREADY_EXISTS
+        );
 
         let constructor_ref = object::create_named_object(admin, bcs::to_bytes(&dp_id));
         let extend_ref = object::generate_extend_ref(&constructor_ref);
@@ -171,6 +217,11 @@ module b2b::settlement_v1 {
     ) acquires Registry {
         let registry = borrow_global_mut<Registry>(@b2b);
         assert!(signer::address_of(admin) == registry.admin, E_NOT_ADMIN);
+
+        assert!(
+            !smart_table::contains(&registry.bank_accounts, bank_id),
+            E_ALREADY_EXISTS
+        );
 
         let constructor_ref = object::create_named_object(admin, *string::bytes(&bank_id));
         let extend_ref = object::generate_extend_ref(&constructor_ref);
@@ -199,15 +250,24 @@ module b2b::settlement_v1 {
         amount: u64,
         bank_id: String
     ) acquires Registry {
-        let registry = borrow_global<Registry>(@b2b);
+        let registry = borrow_global_mut<Registry>(@b2b);
         assert!(signer::address_of(admin) == registry.admin, E_NOT_ADMIN);
         assert!(amount > 0, E_INVALID_AMOUNT);
 
+        assert!(
+            !smart_table::contains(&registry.processed_orders, order_id),
+            E_ORDER_ALREADY_PROCESSED
+        );
+
         let bank = smart_table::borrow(&registry.bank_accounts, bank_id);
-        let bank_signer = object::generate_signer_for_extending(&bank.extend_ref);
+        assert!(bank.is_active, E_INACTIVE);
 
         let partner = smart_table::borrow(&registry.partners, dp_id);
         assert!(partner.is_active, E_INACTIVE);
+
+        smart_table::add(&mut registry.processed_orders, copy order_id, true);
+
+        let bank_signer = object::generate_signer_for_extending(&bank.extend_ref);
         let partner_signer = object::generate_signer_for_extending(&partner.extend_ref);
 
         // Step 1: Treasury -> Partner
@@ -222,7 +282,7 @@ module b2b::settlement_v1 {
             order_id,
             dp_id,
             amount,
-            bank_id, // String is copyable
+            bank_id,
             asset: object::object_address(&asset),
             timestamp: timestamp::now_seconds()
         });
