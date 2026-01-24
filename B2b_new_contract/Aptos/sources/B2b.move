@@ -364,7 +364,63 @@ module b2b_contract::order_management_v1 {
             updated_by: admin_addr,
         });
     }
+public fun create_settlement_order(
+        order_id: String,
+        dp_id: String,
+        product_id: String,
+        purchase_utr: String,
+        purchase_date: String,
+        quantity: u64,
+        amount: u64,
+        customer: address,
+        fa: fungible_asset::FungibleAsset
+    ) acquires OrderRegistry, B2bRevenueEventHolder, OrderStoreV1 {
+        assert!(exists<OrderRegistry>(RESOURCE_ACCOUNT), E_NOT_INITIALIZED);
+        assert!(order_id.length() > 0, E_INVALID_ORDER_ID);
+        assert!(dp_id.length() > 0, E_INVALID_ORDER_ID);
+        assert!(product_id.length() > 0, E_INVALID_PRODUCT_ID);
+        assert!(purchase_utr.length() > 0, E_INVALID_UTR);
+        assert!(quantity > 0, E_INVALID_QUANTITY);
+        assert!(amount > 0, E_INVALID_AMOUNT);
 
+        let registry = borrow_global_mut<OrderRegistry>(RESOURCE_ACCOUNT);
+        assert!(!registry.orders.contains(order_id), E_ORDER_ALREADY_EXISTS);
+
+        // Deposit the fungible asset directly
+        primary_fungible_store::deposit(get_resource_acc_address(), fa);
+
+        let current_time = timestamp::now_seconds();
+
+        registry.orders.add(order_id, Order {
+            order_id,
+            dp_id,
+            product_id,
+            purchase_utr,
+            purchase_date,
+            quantity,
+            order_value: amount,
+            timestamp: current_time,
+            customer,
+        });
+
+        registry.total_orders += 1;
+
+        let b2b_revenue_event_holder = borrow_global_mut<B2bRevenueEventHolder>(RESOURCE_ACCOUNT);
+
+        event::emit_event<OrderPlacedEvent>(
+            &mut b2b_revenue_event_holder.order_placed,
+            OrderPlacedEvent {
+                order_id,
+                dp_id,
+                product_id,
+                utr: purchase_utr,
+                quantity,
+                amount,
+                timestamp: current_time,
+                customer,
+            }
+        );
+    }
     // ========== View Functions ==========
 
     #[view]
