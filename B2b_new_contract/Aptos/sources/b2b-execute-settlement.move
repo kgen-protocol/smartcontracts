@@ -1,6 +1,5 @@
 module b2b_execute_settlement::settlement_v1 {
     use std::string::{String};
-    use std::bcs;
     use std::vector;
     use std::signer;
     use aptos_framework::fungible_asset::{Metadata};
@@ -238,14 +237,14 @@ module b2b_execute_settlement::settlement_v1 {
     /// ================================
     public entry fun create_partner(
         admin: &signer,
-        dp_id: u64
+        dp_id: String
     ) acquires Registry {
         let registry = borrow_global_mut<Registry>(@b2b_execute_settlement);
         assert!(signer::address_of(admin) == registry.super_admin, E_NOT_SUPER_ADMIN);
         assert!(!registry.partners.contains(dp_id), E_ALREADY_EXISTS);
 
         // Use dp_id in seeds for object creation to ensure uniqueness per ID
-        let constructor_ref = object::create_named_object(admin, bcs::to_bytes(&dp_id));
+        let constructor_ref = object::create_named_object(admin, *dp_id.bytes());
         let extend_ref = object::generate_extend_ref(&constructor_ref);
         let partner_signer = object::generate_signer(&constructor_ref);
         let partner_addr = signer::address_of(&partner_signer);
@@ -257,8 +256,8 @@ module b2b_execute_settlement::settlement_v1 {
 
     public entry fun create_partner_alias(
         admin: &signer,
-        existing_dp_id: u64,
-        new_alias_dp_id: u64
+        existing_dp_id: String,
+        new_alias_dp_id: String
     ) acquires Registry {
         let registry = borrow_global_mut<Registry>(@b2b_execute_settlement);
         assert!(signer::address_of(admin) == registry.super_admin, E_NOT_SUPER_ADMIN);
@@ -312,11 +311,10 @@ module b2b_execute_settlement::settlement_v1 {
         admin: &signer,
         asset: Object<Metadata>,
         order_id: String,
-        dp_id: u64,
+        dp_id: String,
         amount: u64,
         bank_id: String,
         product_id: String,
-        dp_id_str: String,
         purchase_utr: String,
         purchase_date: String,
         quantity: u64
@@ -331,7 +329,7 @@ module b2b_execute_settlement::settlement_v1 {
         assert!(order_id.length() > 0, E_INVALID_ORDER_ID);
         assert!(product_id.length() > 0, E_INVALID_PRODUCT_ID);
         assert!(purchase_utr.length() > 0, E_INVALID_UTR);
-        assert!(dp_id_str.length() > 0, E_INVALID_DP_ID);
+        assert!(dp_id.length() > 0, E_INVALID_DP_ID);
         assert!(quantity > 0, E_INVALID_QUANTITY);
 
         assert!(registry.bank_accounts.contains(bank_id), E_INVALID_BANK);
@@ -366,7 +364,7 @@ module b2b_execute_settlement::settlement_v1 {
 
          order_management_v1::create_settlement_order(
              order_id,
-             dp_id_str,
+             dp_id,
              product_id,
              purchase_utr,
              purchase_date,
@@ -465,7 +463,7 @@ module b2b_execute_settlement::settlement_v1 {
             let id = registry.dp_ids[i];
             if (registry.partners.contains(id)) {
                 let info = registry.partners.borrow(id);
-                let aliases = vector::empty<u64>();
+                let aliases = vector::empty<String>();
                 let j = 0;
                 while (j < registry.dp_ids.length()) {
                     let alias_id = registry.dp_ids[j];
