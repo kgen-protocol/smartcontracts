@@ -21,6 +21,7 @@ module KGeNPOG::PoGNFT {
     use std::string::{Self, String};
     use std::signer;
     use std::vector;
+    use aptos_std::smart_vector;
     use aptos_framework::object::{Self, ConstructorRef, Object, ExtendRef};
     use aptos_token_objects::collection;
     use aptos_token_objects::property_map;
@@ -68,6 +69,12 @@ module KGeNPOG::PoGNFT {
     const EINVALID_VECTOR_LENGTH: u64 = 17;
     /// Method not called by Oracle
     const EINVOKER_NOT_ORACLE: u64 = 18;
+    /// Platform not authorized
+    const EPLATFORM_NOT_FOUND: u64 = 19;
+    /// Platform already exists
+    const EPLATFORM_ALREADY_EXISTS: u64 = 20;
+    /// Invalid platform address
+    const EINVALID_PLATFORM_ADDRESS: u64 = 21;
     // The KGen token collection name
     const COLLECTION_NAME: vector<u8> = b"KGeN Proof Of Gamer";
     // The KGen token collection description
@@ -139,7 +146,9 @@ module KGeNPOG::PoGNFT {
     struct Admin has key {
         // Stores the address of the module admin
         admin: address,
-        allow_data_by_oracle: bool
+        allow_data_by_oracle: bool,
+        // Stores the list of authorized platform addresses
+        platform_list: smart_vector::SmartVector<address>
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -240,6 +249,20 @@ module KGeNPOG::PoGNFT {
         token_name: String
     }
 
+    #[event]
+    // 10. PlatformAddedEvent: Emitted when a platform is added by admin.
+    struct PlatformAddedEvent has store, drop {
+        admin_address: address,
+        platform_address: address
+    }
+
+    #[event]
+    // 11. PlatformRemovedEvent: Emitted when a platform is removed by admin.
+    struct PlatformRemovedEvent has store, drop {
+        admin_address: address,
+        platform_address: address
+    }
+
     //  ======View Functions======
 
     #[view]
@@ -338,6 +361,12 @@ module KGeNPOG::PoGNFT {
         borrow_global<Admin>(@KGeNPOG).allow_data_by_oracle
     }
 
+    #[view]
+    // Get the list of authorized platforms
+    public fun get_authorised_platforms(): vector<address> acquires Admin {
+        smart_vector::to_vector(&borrow_global<Admin>(@KGeNPOG).platform_list)
+    }
+
     //  ====== Module Initialization Function======
     //init_module(): called once when the module is initialized/deployed.Initializes the module with required structures and objects.
     fun init_module(admin: &signer) {
@@ -367,7 +396,11 @@ module KGeNPOG::PoGNFT {
 
         // Store the admin address in the Admin resource
         let admin_address = signer::address_of(admin);
-        move_to(admin, Admin { admin: admin_address, allow_data_by_oracle: false });
+        move_to(admin, Admin { 
+            admin: admin_address, 
+            allow_data_by_oracle: false,
+            platform_list: smart_vector::new<address>()
+        });
 
         // Store the base URI for the token
         let uri = string::utf8(
@@ -626,18 +659,84 @@ module KGeNPOG::PoGNFT {
         admin.allow_data_by_oracle = status;
     }
 
+    // Adds a platform to the list of authorized platforms.
+    public entry fun add_platform(admin: &signer, platform: address) acquires Admin {
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ECALLER_NOT_ADMIN)
+        );
+
+        // Ensure that the platform address is not empty
+        assert!(
+            platform != @0x0,
+            error::invalid_argument(EINVALID_PLATFORM_ADDRESS)
+        );
+
+        // Check if the platform already exists in the list
+        let platform_list = &mut borrow_global_mut<Admin>(@KGeNPOG).platform_list;
+        let is_duplicate = smart_vector::contains(platform_list, &platform);
+        assert!(
+            !is_duplicate,
+            error::already_exists(EPLATFORM_ALREADY_EXISTS)
+        );
+
+        smart_vector::push_back(platform_list, platform);
+
+        event::emit(PlatformAddedEvent {
+            admin_address: signer::address_of(admin),
+            platform_address: platform
+        });
+    }
+
+    // Removes a platform from the list of authorized platforms.
+    public entry fun remove_platform(admin: &signer, platform: address) acquires Admin {
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ECALLER_NOT_ADMIN)
+        );
+
+        let platform_list = &mut borrow_global_mut<Admin>(@KGeNPOG).platform_list;
+
+        // Ensure the platform address is not empty
+        assert!(
+            platform != @0x0,
+            error::invalid_argument(EINVALID_PLATFORM_ADDRESS)
+        );
+
+        let (exists, index) = smart_vector::index_of(platform_list, &platform);
+
+        // Ensure the platform exists in the list
+        assert!(
+            exists,
+            error::not_found(EPLATFORM_NOT_FOUND)
+        );
+
+        // Remove the platform from the list using its index
+        smart_vector::remove(platform_list, index);
+
+        event::emit(PlatformRemovedEvent {
+            admin_address: signer::address_of(admin),
+            platform_address: platform
+        });
+    }
+
+    // Verify if platform is authorized
+    inline fun verify_platform(platform: &address): bool {
+        smart_vector::contains(&borrow_global<Admin>(@KGeNPOG).platform_list, platform)
+    }
+
     // Mint function only invoked after oracle
     public entry fun mint_player_nft_by_oracle(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         player_username: String,
         avatar_cid: String,
         i_keys: vector<String>,
         i_values: vector<vector<u8>>
     ) acquires Counter, KGenPoACollection, TokenCore, Admin, KGenToken, BaseURI, PoGAllocated {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         assert!(
@@ -772,7 +871,7 @@ module KGeNPOG::PoGNFT {
     // mint_player_nft(): Mints a soulbound NFT for a player with detailed attributes.
     public entry fun mint_player_nft(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         player_username: String,
         avatar_cid: String,
         kgen_community_member_badge: String,
@@ -791,8 +890,8 @@ module KGeNPOG::PoGNFT {
         assert!(!is_oracle_required(), error::permission_denied(EINVOKER_NOT_ORACLE));
 
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         assert!(
@@ -979,13 +1078,13 @@ module KGeNPOG::PoGNFT {
     // change_username_attribute(): Updates the name of the token, ensuring the caller is the token owner.
     public entry fun change_username_attribute(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         token_name: String,
         username: String
-    ) acquires KGenToken, Admin, {
+    ) acquires KGenToken, Admin {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         let collection = string::utf8(COLLECTION_NAME);
@@ -1017,13 +1116,13 @@ module KGeNPOG::PoGNFT {
     // change_avatar_cid(): Updates the avatar URI for the token, ensuring the caller is the token owner.
     public entry fun change_avatar_cid(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         token_name: String,
         avatar_cid: String
     ) acquires BaseURI, Admin, KGenToken {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         let collection_name = string::utf8(COLLECTION_NAME);
@@ -1054,11 +1153,11 @@ module KGeNPOG::PoGNFT {
 
     // burn_by_user(): Allows a user to burn their token, ensuring the caller is the token owner.
     public entry fun burn_by_user(
-        user: &signer, admin: &signer, token_name: String
+        user: &signer, platform: &signer, token_name: String
     ) acquires KGenToken, Admin, PoGAllocated {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         let collection = string::utf8(COLLECTION_NAME);
@@ -1127,7 +1226,7 @@ module KGeNPOG::PoGNFT {
     // Update method only callable by oracle
     public entry fun update_player_score_by_oracle(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         token_name: String,
         i_keys: vector<String>,
         i_values: vector<vector<u8>>
@@ -1135,12 +1234,12 @@ module KGeNPOG::PoGNFT {
         let (okeys, ovalues) =
             oracle_storage::get_player_scores(signer::address_of(user));
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
-        update_player_score(user, admin, token_name, keys, values);
+        update_player_score(user, platform, token_name, keys, values);
     }
 
     public entry fun update_player_score(
         user: &signer,
-        admin: &signer,
+        platform: &signer,
         token_name: String,
         keys: vector<String>,
         values: vector<vector<u8>>
@@ -1148,8 +1247,8 @@ module KGeNPOG::PoGNFT {
         assert!(!is_oracle_required(), error::permission_denied(EINVOKER_NOT_ORACLE));
 
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            verify_platform(&signer::address_of(platform)),
+            error::permission_denied(EPLATFORM_NOT_FOUND)
         );
 
         let creator = get_token_signer_address();
@@ -1210,17 +1309,20 @@ module KGeNPOG::PoGNFT {
 
     // ======Test Cases======
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     public fun test_mint_and_burn_by_user(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
+
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
 
         assert!(get_counter_value() == 1, 89898);
 
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1248,20 +1350,23 @@ module KGeNPOG::PoGNFT {
 
         assert!(exists<KGenToken>(token_address), 5);
 
-        burn_by_user(acc1, admin, token_name);
+        burn_by_user(acc1, platform, token_name);
 
         assert!(!exists<KGenToken>(token_address), 7);
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     public fun test_mint_and_burn_by_admin(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
 
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
+
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1297,15 +1402,18 @@ module KGeNPOG::PoGNFT {
         );
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     public fun test_fetch_and_update(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
 
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
+
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1393,19 +1501,22 @@ module KGeNPOG::PoGNFT {
 
         let levels = vector::empty<vector<u8>>();
 
-        update_player_score(acc1, admin, token_name, badges, levels);
+        update_player_score(acc1, platform, token_name, badges, levels);
 
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     public fun test_change_token_name_and_avatar_uri(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
 
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
+
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1442,7 +1553,7 @@ module KGeNPOG::PoGNFT {
 
         change_username_attribute(
             acc1,
-            admin,
+            platform,
             token_name,
             string::utf8(b"iMentus")
         );
@@ -1463,7 +1574,7 @@ module KGeNPOG::PoGNFT {
 
         change_avatar_cid(
             acc1,
-            admin,
+            platform,
             token_name,
             string::utf8(b"Rkoranne0755")
         );
@@ -1493,15 +1604,19 @@ module KGeNPOG::PoGNFT {
 
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     // #[expected_failure()]
     public fun test_max_limit(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
+
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
+
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1518,10 +1633,10 @@ module KGeNPOG::PoGNFT {
             string::utf8(b"Yes")
         );
         let token_name = string::utf8(b"kgen.io-#1");
-        burn_by_user(acc1, admin, token_name);
+        burn_by_user(acc1, platform, token_name);
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1541,7 +1656,7 @@ module KGeNPOG::PoGNFT {
         burn_by_admin(admin, token_name);
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1579,12 +1694,15 @@ module KGeNPOG::PoGNFT {
         // std::debug::print(&get_collection_address());
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     #[expected_failure]
     public fun test_oracle_approvale(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
+
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
 
         assert!(
             !is_oracle_required(),
@@ -1600,7 +1718,7 @@ module KGeNPOG::PoGNFT {
 
         mint_player_nft(
             acc1,
-            admin,
+            platform,
             string::utf8(b"Rkoranne0755"),
             string::utf8(b"QmesLTdEB5qEXeu8MQiBFWgYcqs2FgbVEgUuFCHs6M4B1B"),
             string::utf8(b"Yes"),
@@ -1618,19 +1736,22 @@ module KGeNPOG::PoGNFT {
         );
     }
 
-    #[test(admin = @KGeNPOG, acc1 = @0x1)]
+    #[test(admin = @KGeNPOG, acc1 = @0x1, platform = @0x2)]
     // #[expected_failure()]
     public fun test_mint_oracle(
-        admin: &signer, acc1: &signer
+        admin: &signer, acc1: &signer, platform: &signer
     ) acquires TokenCore, KGenToken, Counter, KGenPoACollection, Admin, BaseURI, PoGAllocated {
         init_module(admin);
+
+        // Add platform to authorized list
+        add_platform(admin, signer::address_of(platform));
 
         let keys = vector::empty<String>();
         let values = vector::empty<vector<u8>>();
 
         mint_player_nft_by_oracle(
             acc1,
-            admin,
+            platform,
             string::utf8(b"player1"),
             string::utf8(b"player1"),
             keys,

@@ -4,11 +4,10 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-KGeNPOG = "_"
-KGeN = "0x5c4124ac3f8b9cc6d0b0f4ea367084bb67570e56e90b1515a879cfe9d95216df"
+KGeN = "0x850a31e0b352c359ea24ffd17582081d766f82ea2ddea7a888b9cdcb30a3e7a7"
 
 [dev-addresses]
-KGeNPOG = "0x123"
+KGeNPOG = "0xc0343ea7f708085bf6505eaa10f339b6412e924cbdd6cdc5cc9d95d38eec3099"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
