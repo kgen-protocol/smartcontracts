@@ -393,66 +393,72 @@ module rkgen::swap {
     // Swap the input token for the output token at swap ratio.
     // The input token is transferred to the admin, the output token is withdrawn from the pool,
     // and the swap fee is sent to the fee recipient.
-    public entry fun swap(user: &signer, amount: u64) acquires SwapPool {
-        assert_amount(amount);
-        assert_pool();
+    // public entry fun swap(user: &signer, amount: u64) acquires SwapPool {
+        
+    //     assert_amount(amount);
+    //     assert_pool();
 
-        // Calculate fee and output amount
-        let (amount_out, fee_amount) = get_swap_preview(amount);
+    //     // Calculate fee and output amount
+    //     let (amount_out, fee_amount) = get_swap_preview(amount);
 
-        let pool = borrow_global_mut<SwapPool>(@rkgen);
-        assert!(!pool.is_paused, ESWAP_PAUSED);
+    //     let pool = borrow_global_mut<SwapPool>(@rkgen);
+    //     assert!(!pool.is_paused, ESWAP_PAUSED);
 
-        let burn_vault_address = rKGEN::get_burn_vault();// rkgen.get_burn_vault()
+    //     let burn_vault_address = rKGEN::get_burn_vault();// rkgen.get_burn_vault()
 
-        // Check if pool has enough output token
-        let output_token_store =object::address_to_object<FungibleStore>(object::address_from_extend_ref(&pool.output_token));
-        let pool_balance = fungible_asset::balance(output_token_store);
-        assert!(pool_balance >= amount_out, EINSUFFICIENT_BALANCE);
+    //     // Check if pool has enough output token
+    //     let output_token_store =object::address_to_object<FungibleStore>(object::address_from_extend_ref(&pool.output_token));
+    //     let pool_balance = fungible_asset::balance(output_token_store);
+    //     assert!(pool_balance >= amount_out, EINSUFFICIENT_BALANCE);
 
-        let user_addr = signer::address_of((user));
-        let output_token_store_signer = &object::generate_signer_for_extending(&pool.output_token);
+    //     let user_addr = signer::address_of((user));
+    //     let output_token_store_signer = &object::generate_signer_for_extending(&pool.output_token);
 
-        // Ensure primary stores exist
-        primary_fungible_store::ensure_primary_store_exists(user_addr, pool.input_token_metadata);
-        primary_fungible_store::ensure_primary_store_exists(user_addr, pool.output_token_metadata);
-        primary_fungible_store::ensure_primary_store_exists(burn_vault_address, pool.input_token_metadata);
-        primary_fungible_store::ensure_primary_store_exists(pool.fee_recipient, pool.output_token_metadata);
+    //     // Ensure primary stores exist
+    //     primary_fungible_store::ensure_primary_store_exists(user_addr, pool.input_token_metadata);
+    //     primary_fungible_store::ensure_primary_store_exists(user_addr, pool.output_token_metadata);
+    //     primary_fungible_store::ensure_primary_store_exists(burn_vault_address, pool.input_token_metadata);
+    //     primary_fungible_store::ensure_primary_store_exists(pool.fee_recipient, pool.output_token_metadata);
 
-        // Transfer input token from user to burn vault address
-        rKGEN::transfer(user, burn_vault_address, amount);
+    //     // Transfer input token from user to burn vault address
+    //     rKGEN::transfer(user, burn_vault_address, amount);
 
-        // Transfer fee to fee recipient (in output token)
-        if(fee_amount > 0){
-            dispatchable_fungible_asset::transfer(
-                output_token_store_signer,
-                output_token_store,
-                primary_fungible_store::primary_store(pool.fee_recipient, pool.output_token_metadata),
-                fee_amount
-            );
-        };
+    //     // Transfer fee to fee recipient (in output token)
+    //     if(fee_amount > 0){
+    //         dispatchable_fungible_asset::transfer(
+    //             output_token_store_signer,
+    //             output_token_store,
+    //             primary_fungible_store::primary_store(pool.fee_recipient, pool.output_token_metadata),
+    //             fee_amount
+    //         );
+    //     };
 
-        // Transfer output token from pool to user
-        dispatchable_fungible_asset::transfer(
-            output_token_store_signer,
-            output_token_store,
-            primary_fungible_store::primary_store(user_addr, pool.output_token_metadata),
-            amount_out
-        );
+    //     // Transfer output token from pool to user
+    //     dispatchable_fungible_asset::transfer(
+    //         output_token_store_signer,
+    //         output_token_store,
+    //         primary_fungible_store::primary_store(user_addr, pool.output_token_metadata),
+    //         amount_out
+    //     );
 
-        pool.total_input_token_swapped += amount;
-        pool.total_output_token_swapped += amount_out;
-        pool.total_fees_collected += fee_amount;
+    //     pool.total_input_token_swapped += amount;
+    //     pool.total_output_token_swapped += amount_out;
+    //     pool.total_fees_collected += fee_amount;
 
-        event::emit(Swap {
-            user: user_addr,
-            input_token_amount: amount,
-            output_token_amount: amount_out,
-            swap_fee_amount: fee_amount,
-        });
-    }
+    //     event::emit(Swap {
+    //         user: user_addr,
+    //         input_token_amount: amount,
+    //         output_token_amount: amount_out,
+    //         swap_fee_amount: fee_amount,
+    //     });
+    // }
 
-    // Swap sponsor: Swap the input token for the output token at swap ratio.
+        const ESWAP_FUNCTION_DEPRECATED: u64 = 16;
+
+        public entry fun swap(_user: &signer, _amount: u64) {
+                abort ESWAP_FUNCTION_DEPRECATED
+            }
+   // Swap sponsor: Swap the input token for the output token at swap ratio.
     // The input token is transferred to the admin, the output token is withdrawn from the pool,
     // and both the swap fee and the gas fee are sent to the fee recipient.
     public entry fun swap_sponsor(user: &signer, admin: &signer, amount: u64, swap_gas_fee_amount: u64) acquires SwapPool,Admin {
