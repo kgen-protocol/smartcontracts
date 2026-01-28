@@ -1,7 +1,0 @@
-node_modules/
-.env
-artifacts/
-cache/
-typechain/
-coverage/
-node_modules/
