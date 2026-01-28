@@ -104,12 +104,13 @@ module b2b_execute_settlement::settlement_v1 {
         balances: vector<AssetBalance>
     }
 
-  struct PartnerSummary has copy, drop, store {
+    struct PartnerSummary has copy, drop, store {
         dp_id: String,
         resource_account: address,
         is_active: bool,
         alias_names: vector<String>
     }
+
     struct PartnerReport has copy, drop, store {
         dp_id: String,
         resource_account: address,
@@ -221,10 +222,10 @@ module b2b_execute_settlement::settlement_v1 {
         assert!(amount > 0, E_INVALID_AMOUNT);
         let bank = registry.bank_accounts.borrow(bank_id);
         assert!(bank.is_active, E_INACTIVE);
-        
+
         let bank_balance = primary_fungible_store::balance(bank.resource_account, asset);
         assert!(bank_balance >= amount, E_INSUFFICIENT_BANK_BALANCE);
-        
+
         let bank_signer = object::generate_signer_for_extending(&bank.extend_ref);
         let fa = primary_fungible_store::withdraw(&bank_signer, asset, amount);
         primary_fungible_store::deposit(recipient, fa);
@@ -266,7 +267,7 @@ module b2b_execute_settlement::settlement_v1 {
         assert!(existing_dp_id != new_alias_dp_id, E_CIRCULAR_ALIAS);
         assert!(!registry.alias_to_master_partner.contains(existing_dp_id), E_CIRCULAR_ALIAS);
         assert!(!registry.alias_to_master_partner.contains(new_alias_dp_id), E_ALREADY_EXISTS);
-        
+
         // Check for deeper circular chains
         let current_id = existing_dp_id;
         let depth = 0;
@@ -362,17 +363,17 @@ module b2b_execute_settlement::settlement_v1 {
         let fa_rev = primary_fungible_store::withdraw(&partner_signer, asset, amount);
 
 
-         order_management_v1::create_settlement_order(
-             order_id,
-             dp_id,
-             product_id,
-             purchase_utr,
-             purchase_date,
-             quantity,
-             amount,
-             partner.resource_account,
-             fa_rev
-         );    
+        order_management_v1::create_settlement_order(
+            order_id,
+            dp_id,
+            product_id,
+            purchase_utr,
+            purchase_date,
+            quantity,
+            amount,
+            partner.resource_account,
+            fa_rev
+        );
 
         event::emit(SettlementExecuted {
             order_id,
@@ -428,33 +429,26 @@ module b2b_execute_settlement::settlement_v1 {
     }
 
     #[view]
-    public fun get_all_banks_report(): vector<BankReport> acquires Registry {
+    public fun get_bank_detail(bank_id: String): BankReport acquires Registry {
         let registry = borrow_global<Registry>(@b2b_execute_settlement);
-        let reports = vector::empty<BankReport>();
+        assert!(registry.bank_accounts.contains(bank_id), E_INVALID_BANK);
+        let info = registry.bank_accounts.borrow(bank_id);
+        let balances = vector::empty<AssetBalance>();
         let i = 0;
-        while (i < registry.bank_ids.length()) {
-            let id = registry.bank_ids[i];
-            let info = registry.bank_accounts.borrow(id);
-            let balances = vector::empty<AssetBalance>();
-            let j = 0;
-            while (j < registry.tracked_assets.length()) {
-                let addr = registry.tracked_assets[j];
-                let bal = primary_fungible_store::balance(
-                    info.resource_account,
-                    object::address_to_object<Metadata>(addr)
-                );
-                balances.push_back(AssetBalance { asset_metadata: addr, balance: bal });
-                j += 1;
-            };
-            reports.push_back(
-                BankReport { bank_id: id, resource_account: info.resource_account, is_active: info.is_active, balances }
+        while (i < registry.tracked_assets.length()) {
+            let addr = registry.tracked_assets[i];
+            let bal = primary_fungible_store::balance(
+                info.resource_account,
+                object::address_to_object<Metadata>(addr)
             );
+            balances.push_back(AssetBalance { asset_metadata: addr, balance: bal });
             i += 1;
         };
-        reports
+        BankReport { bank_id, resource_account: info.resource_account, is_active: info.is_active, balances }
     }
 
-       #[view]
+
+    #[view]
     public fun get_all_partners(): vector<PartnerSummary> acquires Registry {
         let registry = borrow_global<Registry>(@b2b_execute_settlement);
         let result = vector::empty<PartnerSummary>();
@@ -467,7 +461,7 @@ module b2b_execute_settlement::settlement_v1 {
                 let j = 0;
                 while (j < registry.dp_ids.length()) {
                     let alias_id = registry.dp_ids[j];
-                    if (registry.alias_to_master_partner.contains(alias_id) && 
+                    if (registry.alias_to_master_partner.contains(alias_id) &&
                         *registry.alias_to_master_partner.borrow(alias_id) == id) {
                         aliases.push_back(alias_id);
                     };
@@ -483,32 +477,31 @@ module b2b_execute_settlement::settlement_v1 {
     }
 
     #[view]
-    public fun get_all_partners_report(): vector<PartnerReport> acquires Registry {
+    public fun get_partner_detail(dp_id: String): PartnerReport acquires Registry {
         let registry = borrow_global<Registry>(@b2b_execute_settlement);
-        let reports = vector::empty<PartnerReport>();
+        
+        // Check if dp_id exists in partners table, if not check alias table
+        let (master_dp_id, info) = if (registry.partners.contains(dp_id)) {
+            (dp_id, registry.partners.borrow(dp_id))
+        } else if (registry.alias_to_master_partner.contains(dp_id)) {
+            let master_id = *registry.alias_to_master_partner.borrow(dp_id);
+            (master_id, registry.partners.borrow(master_id))
+        } else {
+            abort E_INVALID_PARTNER
+        };
+        
+        let balances = vector::empty<AssetBalance>();
         let i = 0;
-        while (i < registry.dp_ids.length()) {
-            let id = registry.dp_ids[i];
-            if (registry.partners.contains(id)) {
-                let info = registry.partners.borrow(id);
-                let balances = vector::empty<AssetBalance>();
-                let j = 0;
-                while (j < registry.tracked_assets.length()) {
-                    let addr = registry.tracked_assets[j];
-                    let bal = primary_fungible_store::balance(
-                        info.resource_account,
-                        object::address_to_object<Metadata>(addr)
-                    );
-                    balances.push_back(AssetBalance { asset_metadata: addr, balance: bal });
-                    j += 1;
-                };
-                reports.push_back(
-                    PartnerReport { dp_id: id, resource_account: info.resource_account, is_active: info.is_active, balances }
-                );
-            };
+        while (i < registry.tracked_assets.length()) {
+            let addr = registry.tracked_assets[i];
+            let bal = primary_fungible_store::balance(
+                info.resource_account,
+                object::address_to_object<Metadata>(addr)
+            );
+            balances.push_back(AssetBalance { asset_metadata: addr, balance: bal });
             i += 1;
         };
-        reports
+        PartnerReport { dp_id: master_dp_id, resource_account: info.resource_account, is_active: info.is_active, balances }
     }
 
     // Getter functions for test access
@@ -532,4 +525,3 @@ module b2b_execute_settlement::settlement_v1 {
         summary.is_active
     }
 }
-

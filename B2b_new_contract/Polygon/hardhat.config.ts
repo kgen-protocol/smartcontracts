@@ -48,6 +48,7 @@ export default {
       {
         version: "0.8.22",
         settings: {
+          viaIR: true,
           optimizer: {
             runs: 200,
             enabled: true,

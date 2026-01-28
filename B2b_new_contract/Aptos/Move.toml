@@ -5,6 +5,7 @@ authors = []
 
 [addresses]
 b2b_contract="0x076a4da82ff011db382e164652d7ce84b6966b31f842d29a58bdc30bd4b0f3cf"
+b2b_execute_settlement = "0x076a4da82ff011db382e164652d7ce84b6966b31f842d29a58bdc30bd4b0f3cf"
 [dev-addresses]
 
 [dependencies.AptosFramework]
