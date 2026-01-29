@@ -17,7 +17,7 @@ const deployContract: DeployFunction = async function (
   console.log("chainId: ", chainId);
 
   // Already deployed B2b contract address
-  const B2B_CONTRACT_ADDRESS = "0xdeE058AE306402Ddc4e6b415b6E39c9538164a77";
+  const B2B_CONTRACT_ADDRESS = "0x1Fcfa7866Eb4361E322aFbcBcB426B27a29d90Bd";
   
   // Deploy B2BSettlementV2 Contract
   const settlementDeployment = await deploy("B2BSettlementV2", {
