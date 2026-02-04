@@ -68,6 +68,8 @@ module KGeNPOG::PoGNFT {
     const EINVALID_VECTOR_LENGTH: u64 = 17;
     /// Method not called by Oracle
     const EINVOKER_NOT_ORACLE: u64 = 18;
+    /// Caller is not admin or authorized platform
+    const ENOT_ADMIN_OR_PLATFORM: u64 = 19;
     // The KGen token collection name
     const COLLECTION_NAME: vector<u8> = b"KGeN Proof Of Gamer";
     // The KGen token collection description
@@ -176,6 +178,12 @@ module KGeNPOG::PoGNFT {
         count: u8
     }
 
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    /// Stores the list of authorized platform addresses that can act as secondary signers
+    struct AuthorizedPlatforms has key {
+        platforms: vector<address>
+    }
+
     //  ======Events======
     #[event]
     // 1. NFTMintedToPlayer: Emitted when the NFT is minted for Player.
@@ -238,6 +246,20 @@ module KGeNPOG::PoGNFT {
     // 9. AdminBurnedEvent: Emitted when an admin burns a token
     struct AdminBurnedEvent has store, drop {
         token_name: String
+    }
+
+    #[event]
+    /// 10. PlatformAddedEvent: Emitted when a platform is added to the authorized list
+    struct PlatformAddedEvent has store, drop {
+        platform: address,
+        added_by: address
+    }
+
+    #[event]
+    /// 11. PlatformRemovedEvent: Emitted when a platform is removed from the authorized list
+    struct PlatformRemovedEvent has store, drop {
+        platform: address,
+        removed_by: address
     }
 
     //  ======View Functions======
@@ -338,6 +360,25 @@ module KGeNPOG::PoGNFT {
         borrow_global<Admin>(@KGeNPOG).allow_data_by_oracle
     }
 
+    #[view]
+    /// Returns the list of all authorized platforms
+    public fun get_authorized_platforms(): vector<address> acquires AuthorizedPlatforms {
+        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
+            return vector::empty<address>()
+        };
+        borrow_global<AuthorizedPlatforms>(@KGeNPOG).platforms
+    }
+
+    #[view]
+    /// Returns true if the given address is an authorized platform
+    public fun is_authorized_platform(addr: address): bool acquires AuthorizedPlatforms {
+        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
+            return false
+        };
+        let platforms = &borrow_global<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        vector::contains(platforms, &addr)
+    }
+
     //  ====== Module Initialization Function======
     //init_module(): called once when the module is initialized/deployed.Initializes the module with required structures and objects.
     fun init_module(admin: &signer) {
@@ -379,12 +420,23 @@ module KGeNPOG::PoGNFT {
         let counter_value = 1;
         move_to(admin, Counter { count: counter_value });
 
+        // NOTE: AuthorizedPlatforms uses lazy initialization
+        // It will be created when add_authorized_platform() is first called
+
         // Emit a counter incremented event
         let counter_event = CounterIncrementedEvent { value: counter_value };
         event::emit(counter_event);
     }
 
     //  ======Helper Functions======
+
+    /// Returns true if the signer is admin or an authorized platform
+    fun is_admin_or_platform(signer_addr: address): bool acquires Admin, AuthorizedPlatforms {
+        if (signer_addr == get_admin()) {
+            return true
+        };
+        is_authorized_platform(signer_addr)
+    }
 
     //Retrieves the base URI from the global storage, where the URI is stored.
     public fun get_base_uri(): String acquires BaseURI {
@@ -626,6 +678,52 @@ module KGeNPOG::PoGNFT {
         admin.allow_data_by_oracle = status;
     }
 
+    /// Adds a new authorized platform. Only callable by admin.
+    /// Creates AuthorizedPlatforms storage if it doesn't exist yet (lazy initialization).
+    public entry fun add_authorized_platform(
+        admin: &signer,
+        platform: address
+    ) acquires Admin, AuthorizedPlatforms {
+        let admin_addr = signer::address_of(admin);
+        assert!(
+            admin_addr == get_admin(),
+            error::permission_denied(ECALLER_NOT_ADMIN)
+        );
+
+        // Lazy initialization: Create storage if it doesn't exist
+        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
+            move_to(admin, AuthorizedPlatforms { platforms: vector::empty<address>() });
+        };
+
+        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        
+        // Only add if not already present
+        if (!vector::contains(platforms, &platform)) {
+            vector::push_back(platforms, platform);
+            event::emit(PlatformAddedEvent { platform, added_by: admin_addr });
+        }
+    }
+
+    /// Removes an authorized platform. Only callable by admin.
+    public entry fun remove_authorized_platform(
+        admin: &signer,
+        platform: address
+    ) acquires Admin, AuthorizedPlatforms {
+        let admin_addr = signer::address_of(admin);
+        assert!(
+            admin_addr == get_admin(),
+            error::permission_denied(ECALLER_NOT_ADMIN)
+        );
+
+        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        
+        let (found, index) = vector::index_of(platforms, &platform);
+        if (found) {
+            vector::remove(platforms, index);
+            event::emit(PlatformRemovedEvent { platform, removed_by: admin_addr });
+        }
+    }
+
     // Mint function only invoked after oracle
     public entry fun mint_player_nft_by_oracle(
         user: &signer,
@@ -634,10 +732,10 @@ module KGeNPOG::PoGNFT {
         avatar_cid: String,
         i_keys: vector<String>,
         i_values: vector<vector<u8>>
-    ) acquires Counter, KGenPoACollection, TokenCore, Admin, KGenToken, BaseURI, PoGAllocated {
+    ) acquires Counter, KGenPoACollection, TokenCore, Admin, KGenToken, BaseURI, PoGAllocated, AuthorizedPlatforms {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         assert!(
@@ -787,12 +885,12 @@ module KGeNPOG::PoGNFT {
         poc_score_data: String,
         pos_score_data: String,
         pog_score_data: String
-    ) acquires Counter, KGenPoACollection, TokenCore, KGenToken, Admin, BaseURI, PoGAllocated {
+    ) acquires Counter, KGenPoACollection, TokenCore, KGenToken, Admin, BaseURI, PoGAllocated, AuthorizedPlatforms {
         assert!(!is_oracle_required(), error::permission_denied(EINVOKER_NOT_ORACLE));
 
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         assert!(
@@ -982,10 +1080,10 @@ module KGeNPOG::PoGNFT {
         admin: &signer,
         token_name: String,
         username: String
-    ) acquires KGenToken, Admin, {
+    ) acquires KGenToken, Admin, AuthorizedPlatforms {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         let collection = string::utf8(COLLECTION_NAME);
@@ -1020,10 +1118,10 @@ module KGeNPOG::PoGNFT {
         admin: &signer,
         token_name: String,
         avatar_cid: String
-    ) acquires BaseURI, Admin, KGenToken {
+    ) acquires BaseURI, Admin, KGenToken, AuthorizedPlatforms {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         let collection_name = string::utf8(COLLECTION_NAME);
@@ -1055,10 +1153,10 @@ module KGeNPOG::PoGNFT {
     // burn_by_user(): Allows a user to burn their token, ensuring the caller is the token owner.
     public entry fun burn_by_user(
         user: &signer, admin: &signer, token_name: String
-    ) acquires KGenToken, Admin, PoGAllocated {
+    ) acquires KGenToken, Admin, PoGAllocated, AuthorizedPlatforms {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         let collection = string::utf8(COLLECTION_NAME);
@@ -1131,7 +1229,7 @@ module KGeNPOG::PoGNFT {
         token_name: String,
         i_keys: vector<String>,
         i_values: vector<vector<u8>>
-    ) acquires KGenToken, Admin {
+    ) acquires KGenToken, Admin, AuthorizedPlatforms {
         let (okeys, ovalues) =
             oracle_storage::get_player_scores(signer::address_of(user));
         let (keys, values) = merge_player_props(okeys, ovalues, i_keys, i_values);
@@ -1144,12 +1242,12 @@ module KGeNPOG::PoGNFT {
         token_name: String,
         keys: vector<String>,
         values: vector<vector<u8>>
-    ) acquires KGenToken, Admin {
+    ) acquires KGenToken, Admin, AuthorizedPlatforms {
         assert!(!is_oracle_required(), error::permission_denied(EINVOKER_NOT_ORACLE));
 
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ECALLER_NOT_ADMIN)
+            is_admin_or_platform(signer::address_of(admin)),
+            error::permission_denied(ENOT_ADMIN_OR_PLATFORM)
         );
 
         let creator = get_token_signer_address();
