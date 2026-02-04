@@ -363,19 +363,21 @@ module KGeNPOG::PoGNFT {
     #[view]
     /// Returns the list of all authorized platforms
     public fun get_authorized_platforms(): vector<address> acquires AuthorizedPlatforms {
-        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
+        let storage_addr = get_token_signer_address();
+        if (!exists<AuthorizedPlatforms>(storage_addr)) {
             return vector::empty<address>()
         };
-        borrow_global<AuthorizedPlatforms>(@KGeNPOG).platforms
+        borrow_global<AuthorizedPlatforms>(storage_addr).platforms
     }
 
     #[view]
     /// Returns true if the given address is an authorized platform
     public fun is_authorized_platform(addr: address): bool acquires AuthorizedPlatforms {
-        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
+        let storage_addr = get_token_signer_address();
+        if (!exists<AuthorizedPlatforms>(storage_addr)) {
             return false
         };
-        let platforms = &borrow_global<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        let platforms = &borrow_global<AuthorizedPlatforms>(storage_addr).platforms;
         vector::contains(platforms, &addr)
     }
 
@@ -683,19 +685,23 @@ module KGeNPOG::PoGNFT {
     public entry fun add_authorized_platform(
         admin: &signer,
         platform: address
-    ) acquires Admin, AuthorizedPlatforms {
+    ) acquires Admin, AuthorizedPlatforms, TokenCore {
         let admin_addr = signer::address_of(admin);
         assert!(
             admin_addr == get_admin(),
             error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
+        let storage_addr = get_token_signer_address();
+
         // Lazy initialization: Create storage if it doesn't exist
-        if (!exists<AuthorizedPlatforms>(@KGeNPOG)) {
-            move_to(admin, AuthorizedPlatforms { platforms: vector::empty<address>() });
+        // Use the token_signer so resource is stored at module-controlled address
+        if (!exists<AuthorizedPlatforms>(storage_addr)) {
+            let token_signer = get_token_signer(storage_addr);
+            move_to(&token_signer, AuthorizedPlatforms { platforms: vector::empty<address>() });
         };
 
-        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(storage_addr).platforms;
         
         // Only add if not already present
         if (!vector::contains(platforms, &platform)) {
@@ -715,7 +721,12 @@ module KGeNPOG::PoGNFT {
             error::permission_denied(ECALLER_NOT_ADMIN)
         );
 
-        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(@KGeNPOG).platforms;
+        let storage_addr = get_token_signer_address();
+        if (!exists<AuthorizedPlatforms>(storage_addr)) {
+            return // Nothing to remove if storage doesn't exist
+        };
+
+        let platforms = &mut borrow_global_mut<AuthorizedPlatforms>(storage_addr).platforms;
         
         let (found, index) = vector::index_of(platforms, &platform);
         if (found) {
