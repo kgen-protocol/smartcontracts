@@ -725,7 +725,7 @@ module KCashAdmin::kcash {
      * @param amount The amount of funds to transfer.
      */
     /// DEPRECATED: This function is deprecated as reward1 is no longer used.
-    public entry fun admin_transfer_reward3_to_user_bucket1(admin: &signer, to: address, amount: u64) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole {
+    public entry fun admin_transfer_reward3_to_user_bucket1(admin: &signer, to: address, amount: u64) {
         // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -741,7 +741,7 @@ module KCashAdmin::kcash {
      * - The length of `to` array must be equal to the length of `amounts` array.
      */
     /// DEPRECATED: This function is deprecated as reward1 is no longer used.
-    public entry fun admin_transfer_reward3_to_user_bucket1_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole {
+    public entry fun admin_transfer_reward3_to_user_bucket1_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) {
         // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -755,7 +755,7 @@ module KCashAdmin::kcash {
      * @param amount The amount of funds to transfer.
      */
     /// DEPRECATED: This function is deprecated as reward2 is no longer used.
-    public entry fun admin_transfer_reward3_to_user_bucket2(admin: &signer, to: address, amount: u64) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole {
+    public entry fun admin_transfer_reward3_to_user_bucket2(admin: &signer, to: address, amount: u64) {
         // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -771,7 +771,7 @@ module KCashAdmin::kcash {
      * - The length of `to` array must be equal to the length of `amounts` array.
      */
     /// DEPRECATED: This function is deprecated as reward2 is no longer used.
-    public entry fun admin_transfer_reward3_to_user_bucket2_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole {
+    public entry fun admin_transfer_reward3_to_user_bucket2_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) {
         // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -990,8 +990,7 @@ module KCashAdmin::kcash {
      * @param signature The signature containing the transfer details.
     */
     /// DEPRECATED: This function is deprecated as reward1 is no longer used.
-    public entry fun transfer_reward3_to_reward1(from: &signer, to: address, amount: u64, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner {
+    public entry fun transfer_reward3_to_reward1(from: &signer, to: address, amount: u64, signature: vector<u8>) {
         // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -1005,8 +1004,7 @@ module KCashAdmin::kcash {
      * - The caller must have sufficient balance of Reward3 tokens.
     */
     /// DEPRECATED: This function is deprecated as reward1 is no longer used.
-    public entry fun transfer_reward3_to_reward1_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner {
+    public entry fun transfer_reward3_to_reward1_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) {
         // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -1016,8 +1014,7 @@ module KCashAdmin::kcash {
      * @param signature The signature containing the transfer details.
     */
     /// DEPRECATED: This function is deprecated as reward2 is no longer used.
-    public entry fun transfer_reward3_to_reward2(from: &signer, to: address, amount: u64, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner {
+    public entry fun transfer_reward3_to_reward2(from: &signer, to: address, amount: u64, signature: vector<u8>) {
         // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
@@ -1031,8 +1028,7 @@ module KCashAdmin::kcash {
      * - The caller must have sufficient balance of Reward3 tokens.
     */
     /// DEPRECATED: This function is deprecated as reward2 is no longer used.
-    public entry fun transfer_reward3_to_reward2_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner {
+    public entry fun transfer_reward3_to_reward2_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) {
         // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
         assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
