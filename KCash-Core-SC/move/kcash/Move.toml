@@ -7,7 +7,7 @@ authors = []
 KCashAdmin = "_"
 
 [dev-addresses]
-KCashAdmin = '0x12345'
+KCashAdmin = '0x5bd5d55eefa9caf9fcd983e56f1b85871a516d0ab4b85a3c999f7de5059e4744'
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
