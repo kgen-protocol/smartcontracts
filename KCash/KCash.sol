@@ -368,24 +368,27 @@ contract KCash is
      * @param _bucket The bucket containing the token amounts to transfer.
      */
     function transferToReward3(address to, Bucket calldata _bucket) public {
-        uint256 amount = _bucket.reward1 + _bucket.reward2 + _bucket.reward3;
-        Bucket storage bucketSender = buckets[msg.sender];
-        Bucket storage bucketRecipient = buckets[to];
-        if (amount == _bucket.reward1) {
-            bucketSender.reward1 -= _bucket.reward1;
-        } else {
-            if (_bucket.reward1 != 0) {
-                bucketSender.reward1 -= _bucket.reward1;
-            }
-            if (_bucket.reward2 != 0) {
-                bucketSender.reward2 -= _bucket.reward2;
-            }
-            if (_bucket.reward3 != 0) {
-                bucketSender.reward3 -= _bucket.reward3;
-            }
-        }
-        bucketRecipient.reward3 += amount;
-        _transfer(msg.sender, to, amount);
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // uint256 amount = _bucket.reward1 + _bucket.reward2 + _bucket.reward3;
+        // Bucket storage bucketSender = buckets[msg.sender];
+        // Bucket storage bucketRecipient = buckets[to];
+        // if (amount == _bucket.reward1) {
+        //     bucketSender.reward1 -= _bucket.reward1;
+        // } else {
+        //     if (_bucket.reward1 != 0) {
+        //         bucketSender.reward1 -= _bucket.reward1;
+        //     }
+        //     if (_bucket.reward2 != 0) {
+        //         bucketSender.reward2 -= _bucket.reward2;
+        //     }
+        //     if (_bucket.reward3 != 0) {
+        //         bucketSender.reward3 -= _bucket.reward3;
+        //     }
+        // }
+        // bucketRecipient.reward3 += amount;
+        // _transfer(msg.sender, to, amount);
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -399,14 +402,17 @@ contract KCash is
         address[] calldata to,
         Bucket[] calldata _bucket
     ) external {
-        require(to.length == _bucket.length, "KC: length mismatch");
-        uint256 length = to.length;
-        for (uint i; i < length; ) {
-            transferToReward3(to[i], _bucket[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // require(to.length == _bucket.length, "KC: length mismatch");
+        // uint256 length = to.length;
+        // for (uint i; i < length; ) {
+        //     transferToReward3(to[i], _bucket[i]);
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -458,21 +464,24 @@ contract KCash is
     function transferFromReward3ToReward1(
         TransferFromReward3ToReward1Signature calldata signature
     ) public {
-        isValidTransferFromReward3ToReward1Signature(
-            signature,
-            designatedSigner
-        );
-        require(
-            !usedSignatures[signature.signature],
-            "KC: signature already used"
-        );
-        require(signature.from == msg.sender, "KC: sender mismatch");
-        Bucket storage bucketSender = buckets[signature.from];
-        Bucket storage bucketRecipient = buckets[signature.to];
-        bucketSender.reward3 -= signature.amount;
-        bucketRecipient.reward1 += signature.amount;
-        usedSignatures[signature.signature] = true;
-        _transfer(signature.from, signature.to, signature.amount);
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // isValidTransferFromReward3ToReward1Signature(
+        //     signature,
+        //     designatedSigner
+        // );
+        // require(
+        //     !usedSignatures[signature.signature],
+        //     "KC: signature already used"
+        // );
+        // require(signature.from == msg.sender, "KC: sender mismatch");
+        // Bucket storage bucketSender = buckets[signature.from];
+        // Bucket storage bucketRecipient = buckets[signature.to];
+        // bucketSender.reward3 -= signature.amount;
+        // bucketRecipient.reward1 += signature.amount;
+        // usedSignatures[signature.signature] = true;
+        // _transfer(signature.from, signature.to, signature.amount);
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -482,13 +491,16 @@ contract KCash is
     function transferFromReward3ToReward1Bulk(
         TransferFromReward3ToReward1Signature[] calldata signatures
     ) external {
-        uint256 length = signatures.length;
-        for (uint i; i < length; ) {
-            transferFromReward3ToReward1(signatures[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // uint256 length = signatures.length;
+        // for (uint i; i < length; ) {
+        //     transferFromReward3ToReward1(signatures[i]);
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -498,22 +510,24 @@ contract KCash is
     function transferFromReward3ToReward2(
         TransferFromReward3ToReward2Signature calldata signature
     ) public {
-        isValidTransferFromReward3ToReward2Signature(
-            signature,
-            designatedSigner
-        );
-        require(
-            !usedSignatures[signature.signature],
-            "KC: signature already used"
-        );
-        require(signature.from == msg.sender, "KC: sender mismatch");
-        Bucket storage bucketSender = buckets[signature.from];
-        Bucket storage bucketRecipient = buckets[signature.to];
-        bucketSender.reward3 -= signature.amount;
-        bucketRecipient.reward2 += signature.amount;
-
-        usedSignatures[signature.signature] = true;
-        _transfer(signature.from, signature.to, signature.amount);
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // isValidTransferFromReward3ToReward2Signature(
+        //     signature,
+        //     designatedSigner
+        // );
+        // require(
+        //     !usedSignatures[signature.signature],
+        //     "KC: signature already used"
+        // );
+        // require(signature.from == msg.sender, "KC: sender mismatch");
+        // Bucket storage bucketSender = buckets[signature.from];
+        // Bucket storage bucketRecipient = buckets[signature.to];
+        // bucketSender.reward3 -= signature.amount;
+        // bucketRecipient.reward2 += signature.amount;
+        // usedSignatures[signature.signature] = true;
+        // _transfer(signature.from, signature.to, signature.amount);
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -523,13 +537,16 @@ contract KCash is
     function transferFromReward3ToReward2Bulk(
         TransferFromReward3ToReward2Signature[] calldata signatures
     ) external {
-        uint256 length = signatures.length;
-        for (uint i; i < length; ) {
-            transferFromReward3ToReward2(signatures[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // uint256 length = signatures.length;
+        // for (uint i; i < length; ) {
+        //     transferFromReward3ToReward2(signatures[i]);
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -626,14 +643,13 @@ contract KCash is
      * @param amount The amount to transfer.
      */
     function _adminTransferFromReward3ToReward1(
-        address to,
-        uint256 amount
-    ) internal {
-        Bucket storage bucketSender = buckets[msg.sender];
-        Bucket storage bucketRecipient = buckets[to];
-        bucketSender.reward3 -= amount;
-        bucketRecipient.reward1 += amount;
-        _transfer(msg.sender, to, amount);
+        // Deprecated: no longer used
+        // function body commented out
+        // Bucket storage bucketSender = buckets[msg.sender];
+        // Bucket storage bucketRecipient = buckets[to];
+        // bucketSender.reward3 -= amount;
+        // bucketRecipient.reward1 += amount;
+        // _transfer(msg.sender, to, amount);
     }
 
     /**
@@ -647,7 +663,10 @@ contract KCash is
         address to,
         uint256 amount
     ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        _adminTransferFromReward3ToReward1(to, amount);
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // _adminTransferFromReward3ToReward1(to, amount);
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -664,14 +683,17 @@ contract KCash is
         address[] calldata to,
         uint256[] calldata amounts
     ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        require(to.length == amounts.length, "KC: length mismatch");
-        uint256 length = to.length;
-        for (uint i; i < length; ) {
-            _adminTransferFromReward3ToReward1(to[i], amounts[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // require(to.length == amounts.length, "KC: length mismatch");
+        // uint256 length = to.length;
+        // for (uint i; i < length; ) {
+        //     _adminTransferFromReward3ToReward1(to[i], amounts[i]);
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+        revert("KC: reward1 and reward2 deprecated");
     }
 
 
@@ -681,14 +703,13 @@ contract KCash is
      * @param amount The amount of tokens to transfer.
      */
     function _adminTransferFromReward3ToReward2(
-        address to,
-        uint256 amount
-    ) internal {
-        Bucket storage bucketSender = buckets[msg.sender];
-        Bucket storage bucketRecipient = buckets[to];
-        bucketSender.reward3 -= amount;
-        bucketRecipient.reward2 += amount;
-        _transfer(msg.sender, to, amount);
+        // Deprecated: no longer used
+        // function body commented out
+        // Bucket storage bucketSender = buckets[msg.sender];
+        // Bucket storage bucketRecipient = buckets[to];
+        // bucketSender.reward3 -= amount;
+        // bucketRecipient.reward2 += amount;
+        // _transfer(msg.sender, to, amount);
     }
 
     /**
@@ -702,7 +723,10 @@ contract KCash is
         address to,
         uint256 amount
     ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        _adminTransferFromReward3ToReward2(to, amount);
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // _adminTransferFromReward3ToReward2(to, amount);
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -719,14 +743,17 @@ contract KCash is
         address[] calldata to,
         uint256[] calldata amounts
     ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        require(to.length == amounts.length, "KC: length mismatch");
-        uint256 length = to.length;
-        for (uint i; i < length; ) {
-            _adminTransferFromReward3ToReward2(to[i], amounts[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // require(to.length == amounts.length, "KC: length mismatch");
+        // uint256 length = to.length;
+        // for (uint i; i < length; ) {
+        //     _adminTransferFromReward3ToReward2(to[i], amounts[i]);
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     /**
@@ -738,24 +765,23 @@ contract KCash is
      * @param bucket The reward bucket containing the reward amounts.
      */
     function adminTransferFrom(
-        address from,
-        address to,
-        Bucket calldata bucket
-    ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        uint256 amount = bucket.reward1 + bucket.reward2 + bucket.reward3;
-        require(
-            amount <= balanceOf(from),
-            "KC: transfer amount exceeds balance"
-        );
-        Bucket storage bucketSender = buckets[from];
-        Bucket storage bucketRecipient = buckets[to];
-        bucketSender.reward1 -= bucket.reward1;
-        bucketSender.reward2 -= bucket.reward2;
-        bucketSender.reward3 -= bucket.reward3;
-        bucketRecipient.reward1 += bucket.reward1;
-        bucketRecipient.reward2 += bucket.reward2;
-        bucketRecipient.reward3 += bucket.reward3;
-        super.transferFrom(from, to, amount); 
+        // Deprecated: reward1 and reward2 logic
+        // function body commented out
+        // uint256 amount = bucket.reward1 + bucket.reward2 + bucket.reward3;
+        // require(
+        //     amount <= balanceOf(from),
+        //     "KC: transfer amount exceeds balance"
+        // );
+        // Bucket storage bucketSender = buckets[from];
+        // Bucket storage bucketRecipient = buckets[to];
+        // bucketSender.reward1 -= bucket.reward1;
+        // bucketSender.reward2 -= bucket.reward2;
+        // bucketSender.reward3 -= bucket.reward3;
+        // bucketRecipient.reward1 += bucket.reward1;
+        // bucketRecipient.reward2 += bucket.reward2;
+        // bucketRecipient.reward3 += bucket.reward3;
+        // super.transferFrom(from, to, amount); 
+        revert("KC: reward1 and reward2 deprecated");
     }
 
     function burn(uint256 amount) public override {
