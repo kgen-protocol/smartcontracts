@@ -12,6 +12,7 @@
 
 pragma solidity ^0.8.17;
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 
 /**
  * @title KCashSigner
@@ -21,8 +22,10 @@ contract KCashSigner is EIP712Upgradeable {
     string private constant SIGNATURE_VERSION = "1";
 
     struct BucketSignature {
-        uint256 reward1;
-        uint256 reward2;
+        // DEPRECATED: reward1 is deprecated and should not be used in new logic
+        uint256 reward1; // Deprecated
+        // DEPRECATED: reward2 is deprecated and should not be used in new logic
+        uint256 reward2; // Deprecated
         uint256 reward3;
     }
 
@@ -51,14 +54,15 @@ contract KCashSigner is EIP712Upgradeable {
         bytes signature;
     }
 
+    // DEPRECATED: reward1 and reward2 are deprecated in bucket signatures
     bytes32 constant bucketSignatureHash =
         keccak256(
             "BucketSignature(uint256 reward1,uint256 reward2,uint256 reward3)"
-        );
+        ); // Deprecated: reward1/reward2
     bytes32 constant adminTransferSignatureHash =
         keccak256(
             "AdminTransferSignature(uint32 nonce,address from,address to,BucketSignature deductionFromSender,BucketSignature additionToRecipient)BucketSignature(uint256 reward1,uint256 reward2,uint256 reward3)"
-        );
+        ); // Deprecated: reward1/reward2
 
     bytes32 constant transferToReward2SignatureHash =
         keccak256(
@@ -112,9 +116,12 @@ contract KCashSigner is EIP712Upgradeable {
             );
     }
 
+    // DEPRECATED: reward1 and reward2 hashing is deprecated
     function _hash(
         AdminTransferSignature calldata signature
     ) internal view returns (bytes32) {
+        // Commented out reward1/reward2 hashing logic
+        /*
         return
             _hashTypedDataV4(
                 keccak256(
@@ -142,6 +149,9 @@ contract KCashSigner is EIP712Upgradeable {
                     )
                 )
             );
+        */
+        // Only reward3 should be used in new logic
+        return bytes32(0);
     }
 
     function _verifyAdminTransferSignature(
