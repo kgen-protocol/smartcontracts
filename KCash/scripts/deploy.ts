@@ -20,7 +20,7 @@ async function main() {
 
   const kcash = await upgrades.deployProxy(KCash, [ownerAddress, designatedSigner], {
     initializer: "initialize",
-    kind: "uups",
+    kind: "transparent",
   });
 
   await kcash.waitForDeployment();
