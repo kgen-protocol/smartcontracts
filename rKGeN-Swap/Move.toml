@@ -4,8 +4,10 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-rkgen = "0x95ced0aed32629ce375aedc645104a23b42bd6b014318f0a84c8a8c5f44abad9"
-rKGenAdmin='0xebebfeea655b30ae5d63e932dda7755b53dad71a32bbe7a8ec616a907f491611'
+rkgen = "0xc0343ea7f708085bf6505eaa10f339b6412e924cbdd6cdc5cc9d95d38eec3099"
+#rkgen, where you want to deploy the contract module
+rKGenAdmin='0x28f6613ad696b36f3f542160f020ed21e0d10798da26454dfc0785599dacda4f'
+#rKGenAdmin, address of which token to be swapped in this case its rKGeN 
 
 [dev-addresses]
 
@@ -16,7 +18,8 @@ subdir = "aptos-framework"
 
 [dependencies.rKGEN]
 git = "https://github.com/kgen-protocol/smartcontracts"
-rev = "a971d6fc010f0fe650fc4f8d3008258488d7fd03"
-subdir = 'rKGEN-Core-SC/rKGEN'
+rev = "main"
+subdir = 'rKGeN/APTOS'
+# Keep the `rev` field updated to reflect the current deployment source (preferably a commit hash or tag).
 
 [dev-dependencies]
