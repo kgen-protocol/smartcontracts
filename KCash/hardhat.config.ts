@@ -41,11 +41,26 @@ const config: HardhatUserConfig = {
       gasPrice: 30000000000,
       gas: 5000000,
     },
+    kairos: {
+      url:
+        process.env.KLAYTN_KAIROS_RPC_URL ||
+        "https://public-en-kairos.node.kaia.io",
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      gasPrice: 250000000000,
+      gas: 5000000,
+    },
     mainnet: {
       url: process.env.BSC_MAINNET_RPC_URL || "https://bsc-rpc.publicnode.com",
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       gasPrice: 5000000000,
       gas: 5000000,
+    },
+    kairos: {
+      url: process.env.KLAYTN_KAIROS_RPC_URL || "https://public-en-kairos.node.kaia.io",
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      gasPrice: 250000000000,
+      gas: 8500000,
+      chainId: 8217,
     },
   },
   etherscan: {

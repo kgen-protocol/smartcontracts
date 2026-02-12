@@ -8,6 +8,7 @@
     "test": "hardhat test",
     "deploy:bsctest": "hardhat run scripts/deploy.ts --network bsctest",
     "deploy:amoy": "hardhat run scripts/deploy.ts --network amoy",
+    "deploy:kairos": "hardhat run scripts/deploy.ts --network kairos",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network mainnet"
   },
   "dependencies": {
