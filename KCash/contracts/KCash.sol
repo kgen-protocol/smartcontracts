@@ -29,8 +29,10 @@ contract KCash is
      * @dev Represents a bucket that tracks the amount of reward1, reward2, and reward3 in the KCash contract.
      */
     struct Bucket {
-        uint256 reward1;
-        uint256 reward2;
+        // DEPRECATED: reward1 is deprecated and should not be used in new logic
+        uint256 reward1; // Deprecated
+        // DEPRECATED: reward2 is deprecated and should not be used in new logic
+        uint256 reward2; // Deprecated
         uint256 reward3;
     }
 
@@ -106,14 +108,19 @@ contract KCash is
         uint256 _amount,
         Bucket calldata _bucket
     ) private {
+        // DEPRECATED: reward1 and reward2 minting is deprecated
         require(
-            _bucket.reward1 + _bucket.reward2 + _bucket.reward3 == _amount,
-            "KC: amount mismatch"
+            _bucket.reward1 == 0 && _bucket.reward2 == 0,
+            "KC: reward1/reward2 minting deprecated"
+        );
+        require(
+            _bucket.reward3 == _amount,
+            "KC: only reward3 mint allowed"
         );
         Bucket storage bucket = buckets[_to];
         unchecked {
-            bucket.reward1 += _bucket.reward1;
-            bucket.reward2 += _bucket.reward2;
+            // bucket.reward1 += _bucket.reward1; // Deprecated
+            // bucket.reward2 += _bucket.reward2; // Deprecated
             bucket.reward3 += _bucket.reward3;
         }
         _mint(_to, _amount);
@@ -216,19 +223,13 @@ contract KCash is
     ) internal {
         Bucket storage bucketSender = buckets[sender];
         Bucket storage bucketRecipient = buckets[recipient];
-        if (bucketSender.reward3 >= amount) {
-            bucketSender.reward3 -= amount;
-        } else if (bucketSender.reward2 + bucketSender.reward3 >= amount) {
-            bucketSender.reward2 -= amount - bucketSender.reward3;
-            delete bucketSender.reward3;
-        } else {
-            bucketSender.reward1 -=
-                amount -
-                bucketSender.reward2 -
-                bucketSender.reward3;
-            delete bucketSender.reward3;
-            delete bucketSender.reward2;
-        }
+        // DEPRECATED: reward1 and reward2 transfer is deprecated
+        require(
+            bucketSender.reward1 == 0 && bucketSender.reward2 == 0,
+            "KC: reward1/reward2 transfer deprecated"
+        );
+        require(bucketSender.reward3 >= amount, "KC: insufficient reward3");
+        bucketSender.reward3 -= amount;
         bucketRecipient.reward3 += amount;
     }
 
@@ -253,23 +254,27 @@ contract KCash is
             !usedSignatures[signature.signature],
             "KC: signature already used"
         );
-        uint256 amount = signature.deductionFromSender.reward1 +
-            signature.deductionFromSender.reward2 +
-            signature.deductionFromSender.reward3;
+        // DEPRECATED: reward1 and reward2 transfer is deprecated
         require(
-            amount ==
-                signature.additionToRecipient.reward1 +
-                    signature.additionToRecipient.reward2 +
-                    signature.additionToRecipient.reward3,
+            signature.deductionFromSender.reward1 == 0 && signature.deductionFromSender.reward2 == 0,
+            "KC: reward1/reward2 transfer deprecated"
+        );
+        require(
+            signature.additionToRecipient.reward1 == 0 && signature.additionToRecipient.reward2 == 0,
+            "KC: reward1/reward2 transfer deprecated"
+        );
+        uint256 amount = signature.deductionFromSender.reward3;
+        require(
+            amount == signature.additionToRecipient.reward3,
             "KC: amount mismatch"
         );
         Bucket storage bucketSender = buckets[signature.from];
         Bucket storage bucketRecipient = buckets[signature.to];
-        bucketSender.reward1 -= signature.deductionFromSender.reward1;
-        bucketSender.reward2 -= signature.deductionFromSender.reward2;
+        // bucketSender.reward1 -= signature.deductionFromSender.reward1; // Deprecated
+        // bucketSender.reward2 -= signature.deductionFromSender.reward2; // Deprecated
         bucketSender.reward3 -= signature.deductionFromSender.reward3;
-        bucketRecipient.reward1 += signature.additionToRecipient.reward1;
-        bucketRecipient.reward2 += signature.additionToRecipient.reward2;
+        // bucketRecipient.reward1 += signature.additionToRecipient.reward1; // Deprecated
+        // bucketRecipient.reward2 += signature.additionToRecipient.reward2; // Deprecated
         bucketRecipient.reward3 += signature.additionToRecipient.reward3;
         usedSignatures[signature.signature] = true;
         _transfer(signature.from, signature.to, amount);
@@ -306,23 +311,27 @@ contract KCash is
         Bucket calldata deductionFromSender,
         Bucket calldata additionToRecipient
     ) public onlyRole(ADMIN_TRANSFER_ROLE) {
-        uint256 amount = deductionFromSender.reward1 +
-            deductionFromSender.reward2 +
-            deductionFromSender.reward3;
+        // DEPRECATED: reward1 and reward2 transfer is deprecated
         require(
-            amount ==
-                additionToRecipient.reward1 +
-                    additionToRecipient.reward2 +
-                    additionToRecipient.reward3,
+            deductionFromSender.reward1 == 0 && deductionFromSender.reward2 == 0,
+            "KC: reward1/reward2 transfer deprecated"
+        );
+        require(
+            additionToRecipient.reward1 == 0 && additionToRecipient.reward2 == 0,
+            "KC: reward1/reward2 transfer deprecated"
+        );
+        uint256 amount = deductionFromSender.reward3;
+        require(
+            amount == additionToRecipient.reward3,
             "KC: amount mismatch"
         );
         Bucket storage bucketSender = buckets[msg.sender];
         Bucket storage bucketRecipient = buckets[to];
-        bucketSender.reward1 -= deductionFromSender.reward1;
-        bucketSender.reward2 -= deductionFromSender.reward2;
+        // bucketSender.reward1 -= deductionFromSender.reward1; // Deprecated
+        // bucketSender.reward2 -= deductionFromSender.reward2; // Deprecated
         bucketSender.reward3 -= deductionFromSender.reward3;
-        bucketRecipient.reward1 += additionToRecipient.reward1;
-        bucketRecipient.reward2 += additionToRecipient.reward2;
+        // bucketRecipient.reward1 += additionToRecipient.reward1; // Deprecated
+        // bucketRecipient.reward2 += additionToRecipient.reward2; // Deprecated
         bucketRecipient.reward3 += additionToRecipient.reward3;
         _transfer(msg.sender, to, amount);
     }
@@ -368,22 +377,12 @@ contract KCash is
      * @param _bucket The bucket containing the token amounts to transfer.
      */
     function transferToReward3(address to, Bucket calldata _bucket) public {
-        uint256 amount = _bucket.reward1 + _bucket.reward2 + _bucket.reward3;
+        // DEPRECATED: reward1 and reward2 transfer is deprecated
+        require(_bucket.reward1 == 0 && _bucket.reward2 == 0, "KC: reward1/reward2 transfer deprecated");
+        uint256 amount = _bucket.reward3;
         Bucket storage bucketSender = buckets[msg.sender];
         Bucket storage bucketRecipient = buckets[to];
-        if (amount == _bucket.reward1) {
-            bucketSender.reward1 -= _bucket.reward1;
-        } else {
-            if (_bucket.reward1 != 0) {
-                bucketSender.reward1 -= _bucket.reward1;
-            }
-            if (_bucket.reward2 != 0) {
-                bucketSender.reward2 -= _bucket.reward2;
-            }
-            if (_bucket.reward3 != 0) {
-                bucketSender.reward3 -= _bucket.reward3;
-            }
-        }
+        bucketSender.reward3 -= _bucket.reward3;
         bucketRecipient.reward3 += amount;
         _transfer(msg.sender, to, amount);
     }
@@ -742,18 +741,20 @@ contract KCash is
         address to,
         Bucket calldata bucket
     ) external onlyRole(ADMIN_TRANSFER_ROLE) {
-        uint256 amount = bucket.reward1 + bucket.reward2 + bucket.reward3;
+        // DEPRECATED: reward1 and reward2 transfer is deprecated
+        require(bucket.reward1 == 0 && bucket.reward2 == 0, "KC: reward1/reward2 transfer deprecated");
+        uint256 amount = bucket.reward3;
         require(
             amount <= balanceOf(from),
             "KC: transfer amount exceeds balance"
         );
         Bucket storage bucketSender = buckets[from];
         Bucket storage bucketRecipient = buckets[to];
-        bucketSender.reward1 -= bucket.reward1;
-        bucketSender.reward2 -= bucket.reward2;
+        // bucketSender.reward1 -= bucket.reward1; // Deprecated
+        // bucketSender.reward2 -= bucket.reward2; // Deprecated
         bucketSender.reward3 -= bucket.reward3;
-        bucketRecipient.reward1 += bucket.reward1;
-        bucketRecipient.reward2 += bucket.reward2;
+        // bucketRecipient.reward1 += bucket.reward1; // Deprecated
+        // bucketRecipient.reward2 += bucket.reward2; // Deprecated
         bucketRecipient.reward3 += bucket.reward3;
         super.transferFrom(from, to, amount); 
     }

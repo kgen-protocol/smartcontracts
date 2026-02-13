@@ -32,6 +32,7 @@ module KCashAdmin::kcash {
     const EALREADY_EXIST: u64 = 10;
     const EROLE_NOT_EXIST: u64 = 11;
     const EINVALID_ARGUMENTS: u64 = 12;
+    const EFUNC_DEPRECATED: u64 = 13;
 
     const ASSET_SYMBOL: vector<u8> = b"FA";
     const METADATA_NAME: vector<u8> = b"KCash";
@@ -89,9 +90,10 @@ module KCashAdmin::kcash {
     
     // This is a bucketstore to hold the assets in different fields for every users
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    /// DEPRECATED: reward1 and reward2 are deprecated. Only reward3 is active.
     struct BucketStore has key{
-        reward1: u64,
-        reward2: u64,
+        reward1: u64, // DEPRECATED
+        reward2: u64, // DEPRECATED
         reward3: u64,
     }
 
@@ -296,11 +298,12 @@ module KCashAdmin::kcash {
     }
 
     #[view]
+    /// DEPRECATED: reward1 and reward2 are deprecated. Only reward3 is active.
     public fun get_bucket_store(owner_addr: address): (u64, u64, u64) acquires BucketStore {
         if(has_bucket_store(owner_addr)){
             let token_address = get_bucket_user_address(&owner_addr);
             let bs = borrow_global<BucketStore>(token_address);
-            (bs.reward1, bs.reward2, bs.reward3)
+            (0, 0, bs.reward3)
         }
         else {
             (0, 0, 0)
@@ -444,35 +447,28 @@ module KCashAdmin::kcash {
     }
 
     // To deposit the rewards value of the user's bucket store
+    /// DEPRECATED: reward1 and reward2 are deprecated. Only reward3 is active.
     fun deposit_to_bucket(receiver: &address, reward1: u64, reward2: u64, reward3: u64) acquires BucketStore, BucketCore{
         ensure_bucket_store_exist(receiver);
         let token_address = get_bucket_user_address(receiver);
         let bs = borrow_global_mut<BucketStore>(token_address);
-        bs.reward1 = bs.reward1 + reward1;
-        bs.reward2 = bs.reward2 + reward2;
+        // bs.reward1 = bs.reward1 + reward1; // DEPRECATED
+        // bs.reward2 = bs.reward2 + reward2; // DEPRECATED
         bs.reward3 = bs.reward3 + reward3;
-        event::emit(DepositToBucket { receiver: *receiver, reward1, reward2, reward3 });
+        event::emit(DepositToBucket { receiver: *receiver, reward1: 0, reward2: 0, reward3 });
     }
 
     /*  To withdraw the rewards value of the user's bucket store
         @param amount which is withdraw from the bucketstore in order 
         reward3, reward2, reward1
     */ 
+    /// DEPRECATED: reward1 and reward2 are deprecated. Only reward3 is active.
     fun withdraw_amount_from_bucket(owner: address, amount: u64) acquires BucketStore{
         assert!(has_bucket_store(owner), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
         let token_address = get_bucket_user_address(&owner);
         let bs = borrow_global_mut<BucketStore>(token_address);
-        assert!(bs.reward1+bs.reward2+bs.reward3 >= amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_OR_LESS_THAN_BUCKET_ASSETS));
-        if (bs.reward3 >= amount){
-            bs.reward3 = bs.reward3 - amount;
-        } else if (bs.reward3 + bs.reward2 >= amount){
-            bs.reward2 = bs.reward2 - (amount - bs.reward3);
-            bs.reward3 = 0;
-        } else {
-            bs.reward1 = bs.reward1 - (amount - bs.reward2 - bs.reward3);
-            bs.reward2 = 0;
-            bs.reward3 = 0;
-        };
+        assert!(bs.reward3 >= amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_OR_LESS_THAN_BUCKET_ASSETS));
+        bs.reward3 = bs.reward3 - amount;
         event::emit(WithdrawFromBucket { owner, amount });
     }
 
@@ -481,24 +477,24 @@ module KCashAdmin::kcash {
         @param reward2 which is withdraw from the bucketstore's reward2
         @param reward3 which is withdraw from the bucketstore's reward3
     */ 
+    /// DEPRECATED: reward1 and reward2 are deprecated. Only reward3 is active.
     fun withdraw_rewards_from_bucket(owner: address, r1: u64, r2: u64, r3: u64) acquires BucketStore{
         assert!(has_bucket_store(owner), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
         let token_address = get_bucket_user_address(&owner);
         let bs = borrow_global_mut<BucketStore>(token_address);
-        assert!(bs.reward1 >= r1 && bs.reward2 >= r2 && bs.reward3 >= r3, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_OR_LESS_THAN_BUCKET_ASSETS));
-        bs.reward1 = bs.reward1 - r1;
-        bs.reward2 = bs.reward2 - r2;
+        assert!(bs.reward3 >= r3, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_OR_LESS_THAN_BUCKET_ASSETS));
         bs.reward3 = bs.reward3 - r3;
-        event::emit(WithdrawFromBucket { owner, amount: r1+r2+r3 });
+        event::emit(WithdrawFromBucket { owner, amount: r3 });
     }
 
     /// Only admin can transfer an amount from the reward3 bucket to the reward1 bucket.
+    /// DEPRECATED: index and reward1/reward2 logic is deprecated. Only reward3 is active.
     fun admin_transfer_reward3_to_user_bucket_internal(admin: &signer, user: &address, amount: u64, index: u8) acquires ManagedFungibleAsset, BucketCore, BucketStore {
         let token_address = get_bucket_user_address(&signer::address_of(admin));
         let bs = borrow_global_mut<BucketStore>(token_address);
         assert!(bs.reward3 >= amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_OR_LESS_THAN_BUCKET_ASSETS));
         bs.reward3 = bs.reward3 - amount;
-        if (index == 1) deposit_to_bucket(user, amount, 0, 0) else deposit_to_bucket(user, 0, amount, 0);
+        deposit_to_bucket(user, 0, 0, amount);
         transfer_internal(admin, user, amount);
     }
 
@@ -512,14 +508,14 @@ module KCashAdmin::kcash {
     }
 
     /// Internal function user transfer from bucket3 to any bucket based on the index
-    fun user_transfer_internal(from: &signer, to: &address, amount: &u64, index: u8) acquires ManagedFungibleAsset, BucketCore, BucketStore{
+    /// DEPRECATED: index and reward1/reward2 logic is deprecated. Only reward3 is active.
+    fun user_transfer_internal(from: &signer, to: &address, amount: &u64, _index: u8) acquires ManagedFungibleAsset, BucketCore, BucketStore{
         let token_address = get_bucket_user_address(&signer::address_of(from));
         let bucketSender = borrow_global_mut<BucketStore>(token_address);
         assert!(*amount >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
         assert!(bucketSender.reward3 >= *amount, error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
         bucketSender.reward3 = bucketSender.reward3 - *amount;
-
-        if (index == 2) deposit_to_bucket(to, 0, 0, *amount) else if(index == 1) deposit_to_bucket(to, 0, *amount, 0) else deposit_to_bucket(to, *amount, 0, 0);
+        deposit_to_bucket(to, 0, 0, *amount);
         transfer_internal(from, to, *amount);
         event::emit(TransferBetweenBuckets { sender: signer::address_of(from), receiver: *to,  transfered_amount: *amount });
     }
@@ -621,17 +617,18 @@ module KCashAdmin::kcash {
 
     // :!:>mint
     /// Mint as the owner of metadata object or the account with minter role and deposit to a specific account.
+    /// DEPRECATED: r1 and r2 are deprecated. Only r3 is active.
     public entry fun mint(
         admin: &signer, 
         to: address, 
         amount: u64, 
-        r1: u64, 
-        r2: u64, 
+        _r1: u64, 
+        _r2: u64, 
         r3: u64
     ) acquires ManagedFungibleAsset, BucketCore, BucketStore, AdminMinterRole {
         assert!(verifyMinter(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
-        assert!(amount >= 0 && r1 >= 0 && r2 >= 0 && r3 >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
-        assert!(r1+r2+r3 == amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_TO_ASSETS));
+        assert!(amount >= 0 && r3 >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
+        assert!(r3 == amount, error::invalid_argument(EAMOUNT_SHOULD_BE_EQUAL_TO_ASSETS));
         let asset = get_metadata();
         let mint_ref_borrow = authorized_borrow_mint_refs(admin, asset);
         let transfer_ref_borrow = authorized_borrow_transfer_refs(asset);
@@ -639,14 +636,12 @@ module KCashAdmin::kcash {
 
         let fa = fungible_asset::mint(mint_ref_borrow, amount);
         // create a store if not exist and deposit the values in bucket
-        deposit_to_bucket(&to, r1, r2, r3);
+        deposit_to_bucket(&to, 0, 0, r3);
         fungible_asset::deposit_with_ref(transfer_ref_borrow, to_wallet, fa);
 
         // Freeeze the account so that native trnsfer would not work
-        // let wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
         fungible_asset::set_frozen_flag(transfer_ref_borrow, to_wallet, true);
-
-    }// <:!:mint_to
+    }
 
     /// Mint as the owner of metadata object and deposit to specific account in bulk
     public entry fun bulk_mint(admin: &signer, to_vec: vector<address>, amt_vec: vector<u64>, r1_vec: vector<u64>, r2_vec: vector<u64>, r3_vec: vector<u64>)
@@ -729,10 +724,10 @@ module KCashAdmin::kcash {
      * @param to The address to transfer the funds to.
      * @param amount The amount of funds to transfer.
      */
-    public entry fun admin_transfer_reward3_to_user_bucket1(admin: &signer, to: address, amount: u64) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole{
-        assert!(verifyAdminTransfer(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
-        assert!(amount >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
-        admin_transfer_reward3_to_user_bucket_internal(admin, &to, amount, 1);
+    /// DEPRECATED: This function is deprecated as reward1 is no longer used.
+    public entry fun admin_transfer_reward3_to_user_bucket1(admin: &signer, to: address, amount: u64) {
+        // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
@@ -745,19 +740,10 @@ module KCashAdmin::kcash {
      * Requirements:
      * - The length of `to` array must be equal to the length of `amounts` array.
      */
-    public entry fun admin_transfer_reward3_to_user_bucket1_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole{
-        assert!(vector::length(&to_vec) == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-        assert!(verifyAdminTransfer(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
-        let len = vector::length(&to_vec);
-        assert!(len == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-        let i = 0;
-        while (i < len) {
-            let to = vector::borrow(&to_vec, i);
-            // assert!(has_bucket_store(*to), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
-            let amount = vector::borrow(&amount_vec, i);
-            admin_transfer_reward3_to_user_bucket_internal(admin, to, *amount, 1);
-            i = i + 1;
-        }
+    /// DEPRECATED: This function is deprecated as reward1 is no longer used.
+    public entry fun admin_transfer_reward3_to_user_bucket1_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) {
+        // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
@@ -768,11 +754,10 @@ module KCashAdmin::kcash {
      * @param to The address to transfer the funds to.
      * @param amount The amount of funds to transfer.
      */
-    public entry fun admin_transfer_reward3_to_user_bucket2(admin: &signer, to: address, amount: u64) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole{
-        assert!(verifyAdminTransfer(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
-        assert!(amount >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
-
-        admin_transfer_reward3_to_user_bucket_internal(admin, &to, amount, 2);
+    /// DEPRECATED: This function is deprecated as reward2 is no longer used.
+    public entry fun admin_transfer_reward3_to_user_bucket2(admin: &signer, to: address, amount: u64) {
+        // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
@@ -785,18 +770,10 @@ module KCashAdmin::kcash {
      * Requirements:
      * - The length of `to` array must be equal to the length of `amounts` array.
      */
-    public entry fun admin_transfer_reward3_to_user_bucket2_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) acquires ManagedFungibleAsset, BucketStore, BucketCore, AdminTransferRole{
-        assert!(vector::length(&to_vec) == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-        assert!(verifyAdminTransfer(&signer::address_of(admin)), error::invalid_argument(EINVALID_ROLE));
-        let len = vector::length(&to_vec);
-        assert!(len == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-        let i = 0;
-        while (i < len) {
-            let to = vector::borrow(&to_vec, i);
-            let amount = vector::borrow(&amount_vec, i);
-            admin_transfer_reward3_to_user_bucket_internal(admin, to, *amount, 2);
-            i = i + 1;
-        }
+    /// DEPRECATED: This function is deprecated as reward2 is no longer used.
+    public entry fun admin_transfer_reward3_to_user_bucket2_bulk(admin: &signer, to_vec: vector<address>, amount_vec: vector<u64>) {
+        // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /* *** Admin Methods that requires signature *** */
@@ -1012,26 +989,10 @@ module KCashAdmin::kcash {
      * @dev Transfers an amount from the reward3 bucket to the reward1 bucket.
      * @param signature The signature containing the transfer details.
     */
-    public entry fun transfer_reward3_to_reward1(from: &signer, to: address, amount: u64, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner{
-        assert!(amount >= 0, error::invalid_argument(EINVALID_ARGUMENTS));
-        let nonce = ensure_nonce(from);
-        let message = UserTransferWithSign{
-            from: signer::address_of(from),
-            to,
-            method: string::utf8(b"transfer_reward3_to_reward1"),
-            amount,
-            nonce
-        };
-        
-        let messag_bytes = bcs::to_bytes<UserTransferWithSign>(&message);
-        let message_hash = hash::sha2_256(messag_bytes);
-        let is_signature_valid = signature_verification(message_hash, signature);
-        assert!(is_signature_valid, error::permission_denied(EINVALID_SIGNATURE));
-
-        assert!(has_bucket_store(signer::address_of(from)), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
-        user_transfer_internal(from, &to, &amount, 0);
-        update_nonce(&signer::address_of(from));
+    /// DEPRECATED: This function is deprecated as reward1 is no longer used.
+    public entry fun transfer_reward3_to_reward1(from: &signer, to: address, amount: u64, signature: vector<u8>) {
+        // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
@@ -1042,60 +1003,20 @@ module KCashAdmin::kcash {
      * - The `to_vec` and `to_vec` vectors must have the same length.
      * - The caller must have sufficient balance of Reward3 tokens.
     */
-    public entry fun transfer_reward3_to_reward1_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner{
-        let len = vector::length(&to_vec);
-        assert!(len == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-
-        let nonce = ensure_nonce(from);
-        // creating a struct for bulk transfer
-        let message = UserTransferWithSignBulk{
-            from: signer::address_of(from),
-            method: string::utf8(b"transfer_reward3_to_reward1_bulk"),
-            nonce,
-            to_vec,
-            amount_vec,
-        };
-        
-        let messag_bytes = bcs::to_bytes<UserTransferWithSignBulk>(&message);
-        let message_hash = hash::sha2_256(messag_bytes);
-        let is_signature_valid = signature_verification(message_hash, signature);
-        assert!(is_signature_valid, error::permission_denied(EINVALID_SIGNATURE));
-
-        assert!(has_bucket_store(signer::address_of(from)), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
-        let i = 0;
-        while (i < len) {
-            let to = vector::borrow(&to_vec, i);
-            let amount = vector::borrow(&amount_vec, i);
-            user_transfer_internal(from, to, amount, 0);
-            i = i + 1;
-        };
-        update_nonce(&signer::address_of(from));
+    /// DEPRECATED: This function is deprecated as reward1 is no longer used.
+    public entry fun transfer_reward3_to_reward1_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) {
+        // DEPRECATED: No operation. Function is obsolete as reward1 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
      * @dev Transfers an amount from the reward3 bucket to the reward2 bucket.
      * @param signature The signature containing the transfer details.
     */
-    public entry fun transfer_reward3_to_reward2(from: &signer, to: address, amount: u64, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner{
-        let nonce = ensure_nonce(from);
-
-        let message = UserTransferWithSign{
-            from: signer::address_of(from),
-            to,
-            method: string::utf8(b"transfer_reward3_to_reward2"),
-            amount,
-            nonce
-        };
-        let messag_bytes = bcs::to_bytes<UserTransferWithSign>(&message);
-        let message_hash = hash::sha2_256(messag_bytes);
-        let is_signature_valid = signature_verification(message_hash, signature);
-        assert!(is_signature_valid, error::permission_denied(EINVALID_SIGNATURE));
-
-        assert!(has_bucket_store(signer::address_of(from)), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
-        user_transfer_internal(from, &to, &amount, 1);
-        update_nonce(&signer::address_of(from));
+    /// DEPRECATED: This function is deprecated as reward2 is no longer used.
+    public entry fun transfer_reward3_to_reward2(from: &signer, to: address, amount: u64, signature: vector<u8>) {
+        // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /**
@@ -1106,35 +1027,10 @@ module KCashAdmin::kcash {
      * - The `to_vec` and `to_vec` vectors must have the same length.
      * - The caller must have sufficient balance of Reward3 tokens.
     */
-    public entry fun transfer_reward3_to_reward2_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) 
-    acquires ManagedFungibleAsset, BucketCore, BucketStore, ManagedNonce, AdminSigner{
-        let len = vector::length(&to_vec);
-        assert!(len == vector::length(&amount_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
-        let nonce = ensure_nonce(from);
-        
-        // creating a struct for bulk transfer
-        let message = UserTransferWithSignBulk{
-            from: signer::address_of(from),
-            method: string::utf8(b"transfer_reward3_to_reward2_bulk"),
-            nonce,
-            to_vec,
-            amount_vec,
-        };
-        
-        let messag_bytes = bcs::to_bytes<UserTransferWithSignBulk>(&message);
-        let message_hash = hash::sha2_256(messag_bytes);
-        let is_signature_valid = signature_verification(message_hash, signature);
-        assert!(is_signature_valid, error::permission_denied(EINVALID_SIGNATURE));
-
-        assert!(has_bucket_store(signer::address_of(from)), error::invalid_argument(EUSER_DO_NOT_HAVE_BUCKET_STORE));
-        let i = 0;
-        while (i < len) {
-            let to = vector::borrow(&to_vec, i);
-            let amount = vector::borrow(&amount_vec, i);
-            user_transfer_internal(from, to, amount, 1);
-            i = i + 1;
-        };
-        update_nonce(&signer::address_of(from));
+    /// DEPRECATED: This function is deprecated as reward2 is no longer used.
+    public entry fun transfer_reward3_to_reward2_bulk(from: &signer, to_vec: vector<address>, amount_vec: vector<u64>, signature: vector<u8>) {
+        // DEPRECATED: No operation. Function is obsolete as reward2 is removed.
+        assert!(false, error::invalid_argument(EFUNC_DEPRECATED));
     }
 
     /// Burn fungible assets as the owner of metadata object.

@@ -1,0 +1,24 @@
+{
+  "name": "kcash",
+  "version": "1.0.0",
+  "description": "KCash Token Smart Contract",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:bsctest": "hardhat run scripts/deploy.ts --network bsctest",
+    "deploy:amoy": "hardhat run scripts/deploy.ts --network amoy",
+    "deploy:kairos": "hardhat run scripts/deploy.ts --network kairos",
+    "deploy:mainnet": "hardhat run scripts/deploy.ts --network mainnet"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.0",
+    "@openzeppelin/contracts-upgradeable": "^4.9.0",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "hardhat": "^2.19.0"
+  }
+}
