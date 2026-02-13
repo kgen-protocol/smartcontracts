@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-KCashAdmin = "_"
+KCashAdmin = "0x2387f5f16330dbb0236b1776a0d86c7a4901daaa25cd61ecb33709e025d3172f"
 
 [dev-addresses]
 KCashAdmin = '0x12345'

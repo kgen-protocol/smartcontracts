@@ -17,7 +17,7 @@ module KCashAdmin::kcash {
     use aptos_std::ed25519;
     use aptos_std::hash;
     use std::bcs;
-
+    use aptos_framework::ordered_map;
 
     /// Only fungible asset metadata owner can make changes.
     const ENOT_OWNER: u64 = 1;
@@ -36,12 +36,12 @@ module KCashAdmin::kcash {
 
     const ASSET_SYMBOL: vector<u8> = b"FA";
     const METADATA_NAME: vector<u8> = b"KCash";
-    const ICON_URI: vector<u8> = b"http://example.com/favicon.ico";
-    const PROJECT_URI: vector<u8> = b"http://example.com";
+    const ICON_URI: vector<u8> = b"https://kgen.io/favicon.ico";
+    const PROJECT_URI: vector<u8> = b"https://kgen.io";
     const BUCKET_CORE_SEED: vector<u8> = b"BA";
     const BUCKET_COLLECTION_DESCRIPTION: vector<u8> = b"Bucket collections";
     const BUCKET_COLLECTION_NAME: vector<u8> = b"Bucket store";
-    const FIRST_SIGNER_KEY: vector<u8> = x"72717d170bb83e81874da66b6f94755bfc6f67b7ed450c3a64cab316bcce32b7";
+    const FIRST_SIGNER_KEY: vector<u8> = x"d8ff85937b161599d385ef471fa544907a17452cc38afc2c953a8326bf4a7399";
 
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -51,7 +51,11 @@ module KCashAdmin::kcash {
         transfer_ref: TransferRef,
         burn_ref: BurnRef,
     }
-
+   public entry fun initialize_new_buckets(admin: &signer) {
+        assert!(!exists<RewardsBucket>(signer::address_of(admin)),EALREADY_EXIST);
+        let buckets = ordered_map::new<address, BucketStoreV1>();
+        move_to(admin, RewardsBucket { buckets });
+    }
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     /// Hold account which control the transfer of fungible assets. 
     /// Stores the address of the address with ADMIN_TRANSFER_ROLE
@@ -96,7 +100,14 @@ module KCashAdmin::kcash {
         reward2: u64, // DEPRECATED
         reward3: u64,
     }
-
+   struct BucketStoreV1 has store {
+        reward1: u64,
+        reward2: u64,
+        reward3: u64,
+    }
+  struct RewardsBucket has key {
+        buckets: ordered_map::OrderedMap<address, BucketStoreV1>,
+    }
     /* Structs involved in creation of message for the signature involving methods*/
     struct AdminTransferSignature has drop, store {
         from: address,
@@ -255,7 +266,46 @@ module KCashAdmin::kcash {
         assert!(!vector::is_empty(&m_vec), error::invalid_argument(EINVALID_ARGUMENTS_LENGTH));
         vector::contains(&m_vec, minter)
     }
+    fun create_bucket_storeV1(user: address) acquires BucketStore, RewardsBucket {
+    let token_address = get_bucket_user_address(&user);
+    let rewards_bucket = borrow_global_mut<RewardsBucket>(@KCashAdmin);
+    // Case 1: If the user doesn't have a BucketStore and isn't in RewardsBucket
+    if (!exists<BucketStore>(token_address) && !rewards_bucket.buckets.contains(&user)) {
+        // Create a new bucket with initial values (0 rewards)
+        let new_bucket = BucketStoreV1 { reward1: 0, reward2: 0, reward3: 0 };
+        rewards_bucket.buckets.add(user, new_bucket);
+    } 
+    // if false && true == false 
+    // Case 2: If the user has a BucketStore but isn't in RewardsBucket
+    else if (exists<BucketStore>(token_address) && !rewards_bucket.buckets.contains(&user)) {
+        let old_bucket = borrow_global_mut<BucketStore>(token_address);
+        // Migrate the old data to the new bucket in RewardsBucket
+        let migrated_bucket = BucketStoreV1 {
+            reward1: old_bucket.reward1,
+            reward2: old_bucket.reward2,
+            reward3: old_bucket.reward3,
+        };
+        rewards_bucket.buckets.add(user, migrated_bucket);
+    }
+}
+     fun deposit_to_bucketV1(user: address, r1: u64, r2: u64, r3: u64) acquires RewardsBucket,BucketStore {
+        let rewards_bucket = borrow_global<RewardsBucket>(@KCashAdmin);
 
+        if (rewards_bucket.buckets.contains(&user)) {
+            let rewards_bucket_mut = borrow_global_mut<RewardsBucket>(@KCashAdmin);
+            let bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
+            bucket_ref.reward1 = bucket_ref.reward1 + r1;
+            bucket_ref.reward2 = bucket_ref.reward2 + r2;
+            bucket_ref.reward3 = bucket_ref.reward3 + r3;
+        } else {
+            {  create_bucket_storeV1(user);};
+            let rewards_bucket_mut = borrow_global_mut<RewardsBucket>(@KCashAdmin);
+            let bucket_ref = rewards_bucket_mut.buckets.borrow_mut(&user);
+            bucket_ref.reward1 = bucket_ref.reward1 + r1;
+            bucket_ref.reward2 = bucket_ref.reward2 + r2;
+            bucket_ref.reward3 = bucket_ref.reward3 + r3;
+        };
+    }
     /* Verifies that admin_transfer is eligible for transfer or not*/
     inline fun is_signer(signer_pubkey: &vector<u8>): bool acquires AdminSigner{
         let t_vec = borrow_global<AdminSigner>(@KCashAdmin).signer_vec;
