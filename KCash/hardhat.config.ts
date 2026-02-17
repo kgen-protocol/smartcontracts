@@ -7,7 +7,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 
 if (!PRIVATE_KEY) {
   console.warn(
-    "Could not find PRIVATE_KEY environment variable. It will not be possible to execute transactions."
+    "Could not find PRIVATE_KEY environment variable. It will not be possible to execute transactions.",
   );
 }
 
@@ -41,27 +41,41 @@ const config: HardhatUserConfig = {
       gasPrice: 30000000000,
       gas: 5000000,
     },
+    polygon: {
+      url: process.env.POLYGON_RPC_URL || "https://polygon-rpc.com",
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      gasPrice: 30000000000,
+      gas: 5000000,
+    },
     kairos: {
       url:
         process.env.KLAYTN_KAIROS_RPC_URL ||
-        "https://public-en-kairos.node.kaia.io",
+        "https://public-node-api.klaytnapi.com/v1/cypress",
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       gasPrice: 250000000000,
       gas: 5000000,
     },
+    // kairos: {
+    //   url:
+    //     process.env.KLAYTN_KAIROS_RPC_URL ||
+    //     "https://public-en-kairos.node.kaia.io",
+    //   accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+    //   gasPrice: 250000000000,
+    //   gas: 5000000,
+    // },
     mainnet: {
       url: process.env.BSC_MAINNET_RPC_URL || "https://bsc-rpc.publicnode.com",
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       gasPrice: 5000000000,
       gas: 5000000,
     },
-    kairos: {
-      url: process.env.KLAYTN_KAIROS_RPC_URL || "https://public-en-kairos.node.kaia.io",
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
-      gasPrice: 250000000000,
-      gas: 8500000,
-      chainId: 8217,
-    },
+    // kairos: {
+    //   url: process.env.KLAYTN_KAIROS_RPC_URL || "https://public-en-kairos.node.kaia.io",
+    //   accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+    //   gasPrice: 250000000000,
+    //   gas: 8500000,
+    //   chainId: 8217,
+    // },
   },
   etherscan: {
     apiKey: {
