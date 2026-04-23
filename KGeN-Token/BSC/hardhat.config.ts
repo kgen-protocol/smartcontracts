@@ -53,16 +53,12 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        'bsc-testnet': {
-            eid: EndpointId.BSC_V2_TESTNET,
-            url: process.env.RPC_URL_BSC || 'https://bsc-testnet-rpc.publicnode.com',
+        'bsc-mainnet': {
+            eid: EndpointId.BSC_V2_MAINNET,
+            chainId: 56,
+            url: process.env.RPC_URL_BSC_MAINNET,
             accounts,
         },
-        // 'solana-testnet': {
-        //     eid: EndpointId.SOLANA_V2_TESTNET,
-        //     url: process.env.RPC_URL_SOLANA_TESTNET || 'https://api.devnet.solana.com',
-        //     accounts,
-        // },
         hardhat: {
             // Need this for testing because TestHelperOz5.sol is exceeding the compiled contract size limit
             allowUnlimitedContractSize: true,
