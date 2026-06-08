@@ -176,7 +176,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      * @notice Pauses or unpauses only cross-chain operations
      * @param _paused True to pause cross-chain, false to unpause
      */
-    function setCrossChainPaused(bool _paused) external whenNotPaused whenCrossChainNotPaused onlyRole(PAUSER_ROLE) {
+    function setCrossChainPaused(bool _paused) external onlyRole(PAUSER_ROLE) {
         crossChainPaused = _paused;
         emit CrossChainPauseStatusChanged(_paused);
     }
