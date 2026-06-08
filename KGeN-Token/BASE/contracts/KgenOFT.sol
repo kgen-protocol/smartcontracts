@@ -449,7 +449,7 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
         address from,
         address to,
         uint256 amount
-    ) public virtual override whenNotPaused notBlacklisted(from) notBlacklisted(to) returns (bool) {
+    ) public virtual override whenNotPaused notBlacklisted(_msgSender()) notBlacklisted(from) notBlacklisted(to) returns (bool) {
         return super.transferFrom(from, to, amount);
     }
 
