@@ -60,6 +60,13 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     /// @notice Emergency stop flag for cross-chain operations only
     bool public crossChainPaused;
 
+    /// @notice Pending two-step role handoff: holder to revoke (`from`) and holder to grant (`to`).
+    struct PendingRoleTransfer {
+        address from;
+        address to;
+    }
+    mapping(bytes32 => PendingRoleTransfer) private _pendingRoleTransfer;
+
     // =============================================================
     //                            EVENTS
     // =============================================================
@@ -83,6 +90,15 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     event TokenRecovered(address indexed token, address indexed to, uint256 amount);
 
     event UpdateFeeVault(address new_fee_vault, address old_fee_vault);
+
+    /// @notice Emitted when a role transfer is proposed
+    event RoleTransferStarted(bytes32 indexed role, address indexed from, address indexed to);
+
+    /// @notice Emitted when a role transfer is accepted
+    event RoleTransferAccepted(bytes32 indexed role, address indexed from, address indexed to);
+
+    /// @notice Emitted when a role transfer is cancelled
+    event RoleTransferCancelled(bytes32 indexed role, address indexed from, address indexed to);
     // =============================================================
     //                           ERRORS
     // =============================================================
@@ -95,6 +111,10 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
     error CrossChainOperationsPaused();
     error InvalidAmount();
     error TokenRecoveryFailed();
+    error RoleNotTransferable(bytes32 role);
+    error NoPendingRoleTransfer(bytes32 role);
+    error NotProposedRoleHolder(bytes32 role, address caller);
+    error InvalidRoleTransfer();
 
     // =============================================================
     //                         MODIFIERS
@@ -463,7 +483,58 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
-    }  
+    }
+    // =============================================================
+    //                 ROLE TRANSFER (2-STEP)
+    // =============================================================
+
+    /// @notice Step 1: admin proposes moving `role` from `from` to `to`. Takes effect on acceptance.
+    function beginRoleTransfer(bytes32 role, address from, address to) external onlyRole(getRoleAdmin(role)) {
+        if (!_isTransferableRole(role)) revert RoleNotTransferable(role);
+        if (to == address(0)) revert ZeroAddress();
+        if (to == from) revert InvalidRoleTransfer();
+
+        _pendingRoleTransfer[role] = PendingRoleTransfer({ from: from, to: to });
+        emit RoleTransferStarted(role, from, to);
+    }
+
+    /// @notice Step 2: the proposed holder accepts; grants `role` to them and revokes `from`.
+    function acceptRoleTransfer(bytes32 role) external {
+        PendingRoleTransfer memory p = _pendingRoleTransfer[role];
+        if (p.to == address(0)) revert NoPendingRoleTransfer(role);
+        if (_msgSender() != p.to) revert NotProposedRoleHolder(role, _msgSender());
+
+        delete _pendingRoleTransfer[role];
+
+        _grantRole(role, p.to);
+        if (p.from != address(0)) _revokeRole(role, p.from);
+
+        emit RoleTransferAccepted(role, p.from, p.to);
+    }
+
+    /// @notice Cancels a pending role handoff before it is accepted.
+    function cancelRoleTransfer(bytes32 role) external onlyRole(getRoleAdmin(role)) {
+        PendingRoleTransfer memory p = _pendingRoleTransfer[role];
+        if (p.to == address(0)) revert NoPendingRoleTransfer(role);
+
+        delete _pendingRoleTransfer[role];
+        emit RoleTransferCancelled(role, p.from, p.to);
+    }
+
+    /// @notice Returns the pending (from, to) handoff for a role, or (0, 0) if none.
+    function pendingRoleTransfer(bytes32 role) external view returns (address from, address to) {
+        PendingRoleTransfer memory p = _pendingRoleTransfer[role];
+        return (p.from, p.to);
+    }
+
+    function _isTransferableRole(bytes32 role) private pure returns (bool) {
+        return
+            role == DEFAULT_ADMIN_ROLE ||
+            role == PAUSER_ROLE ||
+            role == BLACKLIST_MANAGER_ROLE ||
+            role == FORWARDER_MANAGER_ROLE;
+    }
+
     // =============================================================
     //                   OWNERSHIP OVERRIDES
     // =============================================================
