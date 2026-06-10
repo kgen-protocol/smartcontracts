@@ -545,6 +545,17 @@ contract KgenOFT is OFT, AccessControl, ERC2771Context, Pausable, ReentrancyGuar
 
     // 2) transferOwnership(): it’s declared in Ownable and overridden in Ownable2Step,
     // so list BOTH in the override clause
+    /**
+     * @notice Starts the two-step ownership transfer to `newOwner`.
+     * @dev IMPORTANT: This transfers ONLY the Ownable2Step `owner` (token recovery and
+     *      LayerZero owner functions such as setPeer/setDelegate). It does NOT migrate any
+     *      AccessControl roles (DEFAULT_ADMIN_ROLE, PAUSER_ROLE, BLACKLIST_MANAGER_ROLE,
+     *      FORWARDER_MANAGER_ROLE) — those remain with their current holders. During a full
+     *      admin handover, each role MUST be migrated separately via
+     *      {beginRoleTransfer} / {acceptRoleTransfer}; otherwise the previous owner retains
+     *      role-gated control (pause, blacklist, forwarders, fee vault, role administration).
+     * @param newOwner Address that must call {acceptOwnership} to complete the transfer
+     */
     function transferOwnership(address newOwner) public override(Ownable, Ownable2Step) onlyOwner {
         Ownable2Step.transferOwnership(newOwner);
     }
