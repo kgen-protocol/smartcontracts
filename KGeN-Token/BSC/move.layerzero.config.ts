@@ -9,12 +9,12 @@ enum MsgType {
 }
 
 const bscContract: OmniPointHardhat = {
-    eid: EndpointId.BSC_V2_TESTNET,
+    eid: EndpointId.BSC_V2_MAINNET,
     contractName: 'KgenOFT',
 }
 
 const aptosContract: OmniPointHardhat = {
-    eid: EndpointId.APTOS_V2_TESTNET,
+    eid: EndpointId.APTOS_V2_MAINNET,
     contractName: 'MyOFT',
 }
 
@@ -23,15 +23,15 @@ const config: OAppOmniGraphHardhat = {
         {
             contract: bscContract,
             config: {
-                owner: '0xfdAB4890ed81C416c9FF325e63c6B20B1691647B',
-                delegate: '0xfdAB4890ed81C416c9FF325e63c6B20B1691647B',
+                owner: '0x17cFABF22aA9f67aA178b3F53e3121Faac31b339',
+                delegate: '0x17cFABF22aA9f67aA178b3F53e3121Faac31b339',
             },
         },
         {
             contract: aptosContract,
             config: {
-                delegate: '0xfb3bddd5ae0d24f06b906c914fbdd781569a38829ad909f706e70e2a49106a53',
-                owner: '0xfb3bddd5ae0d24f06b906c914fbdd781569a38829ad909f706e70e2a49106a53',
+                delegate: '0x64d52e91b3b23a285866f51ce86075a56c65532052bbb9bc4d1735b71e932e0e',
+                owner: '0x64d52e91b3b23a285866f51ce86075a56c65532052bbb9bc4d1735b71e932e0e',
             },
         },
     ],
@@ -54,10 +54,10 @@ const config: OAppOmniGraphHardhat = {
                         value: 0, // msg.value in wei for EndpointV2.lzReceive
                     },
                 ],
-                sendLibrary: '0xcc1c03aed42e2841211865758b5efe93c0dde2cb7a2a5dc6cf25a4e33ad23690',
+                sendLibrary: '0xc33752e0220faf79e45385dd73fb28d681dcd9f1569a1480725507c1f3c3aba9',
                 receiveLibraryConfig: {
                     // Required Receive Library Address on Aptos
-                    receiveLibrary: '0xcc1c03aed42e2841211865758b5efe93c0dde2cb7a2a5dc6cf25a4e33ad23690',
+                    receiveLibrary: '0xc33752e0220faf79e45385dd73fb28d681dcd9f1569a1480725507c1f3c3aba9',
                     // Optional Grace Period for Switching Receive Library Address on Aptos
                     gracePeriod: BigInt(0),
                 },
@@ -70,19 +70,25 @@ const config: OAppOmniGraphHardhat = {
                     executorConfig: {
                         maxMessageSize: 10_000,
                         // The configured Executor address on Aptos
-                        executor: '0x93353700091200ef9fdc536ce6a86182cc7e62da25f94356be9421c6310b9585',
+                        executor: '0x15a5bbf1eb7998a22c9f23810d424abe40bd59ddd8e6ab7e59529853ebed41c4',
                     },
                     ulnConfig: {
                         // The number of block confirmations to wait on Aptos before emitting the message from the source chain.
                         confirmations: BigInt(5),
                         // The address of the DVNs you will pay to verify a sent message on the source chain.
                         // The destination tx will wait until ALL `requiredDVNs` verify the message.
-                        requiredDVNs: ['0x756f8ab056688d22687740f4a9aeec3b361170b28d08b719e28c4d38eed1043e'],
+                        requiredDVNs: [
+                            '0xf3f0a412626edba5ddd3613d91109b241893873ac5479ade231cf0b3130572b5'  //LayerZero DVN
+                        ],
                         // The address of the DVNs you will pay to verify a sent message on the source chain.
                         // The destination tx will wait until the configured threshold of `optionalDVNs` verify a message.
-                        optionalDVNs: [],
+                        optionalDVNs: [
+                            '0x9880ed7ade7e7f8f8eb070ce72c51b231921e29e65b3d51fa3810814bba32c00', //Horizen DVN
+                            '0xb3e501ffd9d101f9eb400aa4a6373b9be227273b6ddd54b73c426b8523ab05e3', //Deutsche Telekom DVN
+                            '0xcb2ab3c2fb799c6578b9950f9db7ff555a2d4967ef15437230346f56599801ae', //P2P DVN
+                        ],
                         // The number of `optionalDVNs` that need to successfully verify the message for it to be considered Verified.
-                        optionalDVNThreshold: 0,
+                        optionalDVNThreshold: 2,
                     },
                 },
                 // Optional Receive Configuration
@@ -93,12 +99,18 @@ const config: OAppOmniGraphHardhat = {
                         confirmations: BigInt(5),
                         // The address of the DVNs your `receiveConfig` expects to receive verifications from on the `from` chain.
                         // The `from` chain's OApp will wait until the configured threshold of `requiredDVNs` verify the message.
-                        requiredDVNs: ['0x756f8ab056688d22687740f4a9aeec3b361170b28d08b719e28c4d38eed1043e'],
+                        requiredDVNs: [
+                            '0xf3f0a412626edba5ddd3613d91109b241893873ac5479ade231cf0b3130572b5'  //LayerZero DVN
+                        ],
                         // The address of the `optionalDVNs` you expect to receive verifications from on the `from` chain.
                         // The destination tx will wait until the configured threshold of `optionalDVNs` verify the message.
-                        optionalDVNs: [],
+                        optionalDVNs: [
+                            '0x9880ed7ade7e7f8f8eb070ce72c51b231921e29e65b3d51fa3810814bba32c00', //Horizen DVN
+                            '0xb3e501ffd9d101f9eb400aa4a6373b9be227273b6ddd54b73c426b8523ab05e3', //Deutsche Telekom DVN
+                            '0xcb2ab3c2fb799c6578b9950f9db7ff555a2d4967ef15437230346f56599801ae', //P2P DVN
+                        ],
                         // The number of `optionalDVNs` that need to successfully verify the message for it to be considered Verified.
-                        optionalDVNThreshold: 0,
+                        optionalDVNThreshold: 2,
                     },
                 },
             },
@@ -121,9 +133,9 @@ const config: OAppOmniGraphHardhat = {
                         value: 0, // msg.value in wei for EndpointV2.lzCompose
                     },
                 ],
-                sendLibrary: '0x55f16c442907e86D764AFdc2a07C2de3BdAc8BB7',
+                sendLibrary: '0x9F8C645f2D0b2159767Bd6E0839DE4BE49e823DE',
                 receiveLibraryConfig: {
-                    receiveLibrary: '0x188d4bbCeD671A7aA2b5055937F79510A32e9683',
+                    receiveLibrary: '0xB217266c3A98C8B2709Ee26836C98cf12f6cCEC1',
                     gracePeriod: BigInt(0),
                 },
                 // receiveLibraryTimeoutConfig: {
@@ -133,19 +145,33 @@ const config: OAppOmniGraphHardhat = {
                 sendConfig: {
                     executorConfig: {
                         maxMessageSize: 10_000,
-                        executor: '0x31894b190a8bAbd9A067Ce59fde0BfCFD2B18470',
+                        executor: '0x3ebD570ed38B1b3b4BC886999fcF507e9D584859',
                     },
                     ulnConfig: {
                         confirmations: BigInt(5),
-                        requiredDVNs: ['0x0eE552262f7B562eFcED6DD4A7e2878AB897d405'],
-                        optionalDVNThreshold: 0,
+                        requiredDVNs: [
+                            '0xfd6865c841c2d64565562fcc7e05e619a30615f0' //LayerZero DVN
+                        ],
+                        optionalDVNs: [
+                            '0x247624e2143504730aec22912ed41f092498bef2', //Horizen DVN
+                            '0x439264fb87581a70bb6d7befd16b636521b0ad2d', //P2P DVN
+                            '0xf0a5c5306adbfd4e3dfd5d4b148b451c411d3878', //Deutsche Telekom DVN
+                        ],
+                        optionalDVNThreshold: 2,
                     },
                 },
                 receiveConfig: {
                     ulnConfig: {
                         confirmations: BigInt(5),
-                        requiredDVNs: ['0x0eE552262f7B562eFcED6DD4A7e2878AB897d405'],
-                        optionalDVNThreshold: 0,
+                        requiredDVNs: [
+                            '0xfd6865c841c2d64565562fcc7e05e619a30615f0' //LayerZero DVN
+                        ],
+                        optionalDVNs: [
+                            '0x247624e2143504730aec22912ed41f092498bef2', //Horizen DVN
+                            '0x439264fb87581a70bb6d7befd16b636521b0ad2d', //P2P DVN
+                            '0xf0a5c5306adbfd4e3dfd5d4b148b451c411d3878', //Deutsche Telekom DVN
+                        ],
+                        optionalDVNThreshold: 2,
                     },
                 },
             },

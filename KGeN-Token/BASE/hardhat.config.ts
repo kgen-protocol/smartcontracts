@@ -9,7 +9,7 @@ import 'hardhat-deploy'
 import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
-import '@nomicfoundation/hardhat-verify';
+import '@nomicfoundation/hardhat-verify'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
 import { EndpointId } from '@layerzerolabs/lz-definitions'
@@ -26,8 +26,8 @@ const PRIVATE_KEY = process.env.EVM_PRIVATE_KEY
 const accounts: HttpNetworkAccountsUserConfig | undefined = MNEMONIC
     ? { mnemonic: MNEMONIC }
     : PRIVATE_KEY
-      ? [PRIVATE_KEY]
-      : undefined
+        ? [PRIVATE_KEY]
+        : undefined
 
 if (accounts == null) {
     console.warn(
@@ -59,10 +59,10 @@ const config: HardhatUserConfig = {
             url: process.env.RPC_URL_BSC_MAINNET,
             accounts,
         },
-        'bsc-testnet': {
-            eid: EndpointId.BSC_V2_TESTNET,
-            chainId: 97,
-            url: process.env.RPC_URL_BSC || 'https://bsc-testnet-rpc.publicnode.com',
+        'base-mainnet': {
+            eid: EndpointId.BASE_V2_MAINNET,
+            chainId: 8453,
+            url: process.env.RPC_URL_BASE_MAINNET,
             accounts,
         },
         hardhat: {
@@ -71,9 +71,10 @@ const config: HardhatUserConfig = {
         },
     },
     etherscan: {
-        apiKey: {
-            bscTestnet: 'NSQ52YMYG7TFUYIN1CUZM6XVAWIUBZ1PCV',
-        },
+        apiKey: process.env.ETHERSCAN_API_KEY ?? '',
+    },
+    sourcify: {
+        enabled: false,
     },
     namedAccounts: {
         deployer: {
