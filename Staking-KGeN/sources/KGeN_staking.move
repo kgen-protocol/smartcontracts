@@ -56,13 +56,13 @@ module KGeNAdmin::KGeN_staking {
     /// Treasury not found
     const ETREASURY_NOT_FOUND: u64 = 19;
 
-    const HARVEST_TIME: u64 = 5;  // For testing, in minutes
-    const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    // const HARVEST_TIME: u64 = 5;  // For testing, in minutes
+    // const SECONDS_IN_DAY: u64 = 86400; // In seconds
     const KGEN_STAKING_SEED: vector<u8> = b"KGeN_staking";
     const KGEN_REWARDS_TREASURY_SEED: vector<u8> = b"KGeN_rewards_treasury_seed";
 
-    //const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
-    //const SECONDS_IN_DAY: u64 = 86400; // In seconds
+    const HARVEST_TIME: u64 = 1440;  // For mainnet, in minutes
+    const SECONDS_IN_DAY: u64 = 86400; // In seconds
     // Resources
     // Represents the admin's information and configuration.
     struct Admin has key {
@@ -498,6 +498,34 @@ module KGeNAdmin::KGeN_staking {
         );
     }
 
+
+    // Transfer tokens from rewards resource account using Fungible Asset v2
+    public entry fun transfer_from_rewards_resource(
+        admin: &signer, 
+        receiver: address, 
+        amount: u64,
+        object: address
+    ) acquires Admin {
+        // Ensure the caller is the admin
+        assert!(
+            signer::address_of(admin) == get_admin(),
+            error::permission_denied(ENOT_ADMIN)
+        );
+
+        // Transfer tokens from rewards resource account to receiver using FA v2
+        let res_config = borrow_global<Admin>(@KGeNAdmin);
+        let resource_signer = account::create_signer_with_capability(&res_config.rewards_signer_cap);
+        
+        transfer_tokens(&resource_signer, object, receiver, amount);
+        
+        event::emit(
+            TransferFromResource {
+                receiver,
+                amount
+            }
+        );
+    }
+
     // Updates the admin by nominating a new admin
     public entry fun nominate_admin(
         admin_addr: &signer, new_admin: address
@@ -640,10 +668,10 @@ module KGeNAdmin::KGeN_staking {
     ) acquires StakingAPYRange, Admin {
         let admin_address = signer::address_of(admin);
 
-        // Ensure the caller is the admin
+        // Ensure the caller is the platform signer
         assert!(
-            admin_address == get_admin(),
-            error::permission_denied(ENOT_ADMIN)
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
         );
 
         // Ensure all input vectors have the same length
@@ -714,8 +742,8 @@ module KGeNAdmin::KGeN_staking {
         admin: &signer, range_id: u64, new_apy: u64
     ) acquires Admin, StakingAPYRange {
         assert!(
-            signer::address_of(admin) == get_admin(),
-            error::permission_denied(ENOT_ADMIN)
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
         );
 
         let apy_table = &mut borrow_global_mut<StakingAPYRange>(@KGeNAdmin).ranges;
@@ -747,10 +775,12 @@ module KGeNAdmin::KGeN_staking {
         );
     }
  public entry fun auto_renewal(admin:&signer,user_address:address,stake_id:u64,object:address,gas_fee_amount:u64) acquires UserStakes,Admin {
+        // verify platform
         assert!(
-             signer::address_of(admin) == get_admin(),
-             error::permission_denied(ENOT_ADMIN)
-         );
+            verify_platform(&signer::address_of(admin)),
+            error::invalid_argument(EINVALID_PLATFORM)
+        );
+
         assert!(
         is_stake_exists(user_address, stake_id),
         error::not_found(ESTAKE_NOT_EXIST));
